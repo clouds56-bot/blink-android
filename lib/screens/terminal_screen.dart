@@ -4,10 +4,11 @@ import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:xterm/xterm.dart';
+import 'package:xterm/ui.dart' as xterm_ui;
 import 'package:provider/provider.dart';
 import '../models/ssh_connection.dart';
 import '../services/connection_service.dart';
-import '../utils/ansi_formatter.dart';
 
 class TerminalScreen extends StatefulWidget {
   final SSHConnection connection;
@@ -76,7 +77,7 @@ class _PasswordDialogState extends State<_PasswordDialog> {
           Expanded(
             child: Text(
               'Authenticate',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -166,10 +167,12 @@ class _TerminalScreenState extends State<TerminalScreen> {
   bool _isConnected = false;
   bool _isConnecting = false;
   String _error = '';
-  final List<String> _output = [];
-  final ScrollController _scrollController = ScrollController();
-  final TextEditingController _commandController = TextEditingController();
-  final FocusNode _focusNode = FocusNode();
+
+  // xterm terminal
+  late final Terminal _terminal;
+  final _terminalController = xterm_ui.TerminalController();
+  final _terminalKey = GlobalKey<xterm_ui.TerminalViewState>();
+
   StreamSubscription<List<int>>? _stdoutSubscription;
   StreamSubscription<List<int>>? _stderrSubscription;
 
@@ -177,9 +180,22 @@ class _TerminalScreenState extends State<TerminalScreen> {
   String? _currentPassword;
   bool _hasPromptedForPassword = false;
 
+  // Terminal dimensions
+  static const int _defaultCols = 80;
+  static const int _defaultRows = 24;
+
   @override
   void initState() {
     super.initState();
+
+    // Initialize xterm terminal
+    _terminal = Terminal(
+      maxLines: 10000,
+      onOutput: _onTerminalOutput,
+    );
+
+    _terminal.write('Connecting to ${widget.connection.username}@${widget.connection.host}:${widget.connection.port}...\n');
+
     _connect();
   }
 
@@ -189,10 +205,23 @@ class _TerminalScreenState extends State<TerminalScreen> {
     _stderrSubscription?.cancel();
     _session?.close();
     _client?.close();
-    _commandController.dispose();
-    _scrollController.dispose();
-    _focusNode.dispose();
+    _terminalController.dispose();
     super.dispose();
+  }
+
+  void _onTerminalOutput(String data) {
+    // Handle terminal output from xterm and send to SSH
+    if (_isConnected && _session != null) {
+      _session!.stdin.add(utf8.encode(data));
+    }
+  }
+
+  void _resizeTerminal(int cols, int rows) {
+    if (_isConnected && _session != null) {
+      // Send resize signal to the PTY
+      // Note: dartssh2 doesn't support dynamic PTY resizing after creation
+      // The terminal will be resized on the next connection
+    }
   }
 
   Future<void> _connect() async {
@@ -239,12 +268,13 @@ class _TerminalScreenState extends State<TerminalScreen> {
     setState(() {
       _isConnecting = true;
       if (_hasPromptedForPassword) {
-        _output.clear();
+        _terminal.eraseDisplay();
+        _terminal.eraseScrollbackOnly();
         _error = '';
       }
     });
 
-    _addOutput('Connecting to ${widget.connection.username}@${widget.connection.host}:${widget.connection.port}...');
+    _terminal.write('Connecting to ${widget.connection.username}@${widget.connection.host}:${widget.connection.port}...\n');
 
     try {
       // Create socket
@@ -254,7 +284,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
         timeout: const Duration(seconds: 15),
       );
 
-      _addOutput('Socket connected, establishing SSH session...');
+      _terminal.write('Socket connected, establishing SSH session...\n');
 
       final connectionService = context.read<ConnectionService>();
 
@@ -266,7 +296,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
         if (password != null && !useKeyAuth) {
           _hasPromptedForPassword = true;
           await connectionService.savePassword(widget.connection.id, password!);
-          _addOutput('Password saved securely.');
+          _terminal.write('Password saved securely.\n');
         }
       }
 
@@ -283,13 +313,13 @@ class _TerminalScreenState extends State<TerminalScreen> {
             : null,
       );
 
-      _addOutput('SSH client created, authenticating...');
+      _terminal.write('SSH client created, authenticating...\n');
 
-      _addOutput(useKeyAuth ? 'Authenticating with private key...' : 'Authenticating with password...');
+      _terminal.write(useKeyAuth ? 'Authenticating with private key...\n' : 'Authenticating with password...\n');
 
       // Authenticate
       await _client!.authenticated;
-      _addOutput('Authentication successful!');
+      _terminal.write('Authentication successful!\n');
 
       // Save password on successful authentication (if provided and not using key)
       await savePasswordIfNeeded();
@@ -297,12 +327,12 @@ class _TerminalScreenState extends State<TerminalScreen> {
       // Create PTY session
       _session = await _client!.shell(
         pty: SSHPtyConfig(
-          width: 80,
-          height: 24,
+          width: _defaultCols,
+          height: _defaultRows,
         ),
       );
 
-      _addOutput('PTY session created.\n');
+      _terminal.write('PTY session created.\n');
 
       setState(() {
         _isConnected = true;
@@ -312,8 +342,8 @@ class _TerminalScreenState extends State<TerminalScreen> {
       // Listen for output from stdout
       _stdoutSubscription = _session!.stdout.listen(
         (data) {
-          final output = utf8.decode(data);
-          _addOutput(output);
+          // Write directly to xterm terminal - it handles ANSI codes
+          _terminal.write(String.fromCharCodes(data));
         },
         onError: (error) {
           _addError('Session error: $error');
@@ -326,19 +356,14 @@ class _TerminalScreenState extends State<TerminalScreen> {
       // Listen for stderr
       _stderrSubscription = _session!.stderr.listen(
         (data) {
-          final error = utf8.decode(data);
-          _addError('Remote error: $error');
+          final error = String.fromCharCodes(data);
+          _terminal.write('\x1b[31m$error\x1b[0m'); // Red color for stderr
         },
       );
-
-      // Request focus for keyboard
-      _focusNode.requestFocus();
-    } on Exception catch (e) {
-      _addError('Authentication failed: $e');
-
-      // If authentication failed, prompt for password again
+    } on SocketException catch (e) {
+      _addError('Connection failed: ${e.message}');
       await _promptForPasswordAndConnect(password ?? _currentPassword);
-    } on Exception catch (e) {
+    } catch (e) {
       _addError('Connection failed: $e');
       setState(() {
         _isConnecting = false;
@@ -346,75 +371,11 @@ class _TerminalScreenState extends State<TerminalScreen> {
     }
   }
 
-  void _addOutput(String text) {
-    // Strip ANSI escape codes and control sequences
-    final cleanedText = AnsiFormatter.stripAnsiCodes(text);
-
-    setState(() {
-      _output.add(cleanedText);
-    });
-
-    // Auto-scroll to bottom
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 100),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
-
   void _addError(String error) {
     setState(() {
       _error = error;
     });
-    _addOutput('[ERROR] $error');
-  }
-
-  Future<void> _sendCommand(String command) async {
-    if (!_isConnected || _session == null) return;
-
-    _addOutput('\$ $command');
-
-    try {
-      // Send command with newline
-      _session!.stdin.add(utf8.encode('$command\n'));
-    } catch (e) {
-      _addError('Failed to send command: $e');
-    }
-
-    _commandController.clear();
-  }
-
-  Future<void> _handleSpecialKey(RawKeyEvent event) async {
-    if (!_isConnected || _session == null) return;
-
-    // Handle special keys
-    if (event is RawKeyDownEvent) {
-      final key = event.logicalKey;
-
-      if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter) {
-        // Enter key is handled by the TextField onSubmitted
-        return;
-      } else if (key == LogicalKeyboardKey.control) {
-        // Ctrl+C
-        if (event.data.logicalKey == LogicalKeyboardKey.keyC) {
-          _session!.stdin.add(utf8.encode('\x03')); // SIGINT
-        }
-      } else if (key == LogicalKeyboardKey.arrowUp) {
-        _session!.stdin.add(utf8.encode('\x1b[A')); // Up arrow
-      } else if (key == LogicalKeyboardKey.arrowDown) {
-        _session!.stdin.add(utf8.encode('\x1b[B')); // Down arrow
-      } else if (key == LogicalKeyboardKey.arrowLeft) {
-        _session!.stdin.add(utf8.encode('\x1b[D')); // Left arrow
-      } else if (key == LogicalKeyboardKey.arrowRight) {
-        _session!.stdin.add(utf8.encode('\x1b[C')); // Right arrow
-      } else if (key == LogicalKeyboardKey.tab) {
-        _session!.stdin.add(utf8.encode('\t')); // Tab
-      }
-    }
+    _terminal.write('\x1b[31m[ERROR] $error\x1b[0m\n');
   }
 
   @override
@@ -433,7 +394,8 @@ class _TerminalScreenState extends State<TerminalScreen> {
                     _client?.close();
                     setState(() {
                       _isConnected = false;
-                      _output.clear();
+                      _terminal.eraseDisplay();
+                      _terminal.eraseScrollbackOnly();
                     });
                     _connect();
                   },
@@ -452,110 +414,48 @@ class _TerminalScreenState extends State<TerminalScreen> {
           ),
           body: Column(
             children: [
-          // Connection status
-          if (_isConnecting || _error.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(8),
-              color: _error.isNotEmpty ? Colors.red.shade900 : Colors.blue.shade900,
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: _isConnecting
-                        ? const CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          )
-                        : Icon(Icons.error, size: 16, color: Colors.white),
+              // Connection status
+              if (_isConnecting || _error.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  color: _error.isNotEmpty ? Colors.red.shade900 : Colors.blue.shade900,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: _isConnecting
+                            ? const CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              )
+                            : const Icon(Icons.error, size: 16, color: Colors.white),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _error.isNotEmpty ? _error : 'Connecting...',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _error.isNotEmpty ? _error : 'Connecting...',
-                      style: const TextStyle(color: Colors.white),
-                    ),
+                ),
+
+              // Terminal output using xterm
+              Expanded(
+                child: Container(
+                  color: Colors.black,
+                  child: xterm_ui.TerminalView(
+                    _terminal,
+                    controller: _terminalController,
+                    key: _terminalKey,
                   ),
-                ],
+                ),
               ),
-            ),
-
-          // Terminal output
-          Expanded(
-            child: Container(
-              color: Colors.black,
-              padding: const EdgeInsets.all(8),
-              child: _output.isEmpty
-                  ? Center(
-                      child: Text(
-                        _isConnecting ? 'Connecting...' : 'Disconnected',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      itemCount: _output.length,
-                      itemBuilder: (context, index) {
-                        final line = _output[index];
-                        return Text(
-                          line,
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            color: line.contains('[ERROR]') ? Colors.red : Colors.green,
-                            fontSize: 13,
-                          ),
-                        );
-                      },
-                    ),
-            ),
+            ],
           ),
-
-          // Command input
-          Container(
-            color: Colors.grey[900],
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              children: [
-                const Text(
-                  '\$ ',
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    color: Colors.green,
-                    fontSize: 14,
-                  ),
-                ),
-                Expanded(
-                  child: Focus(
-                    focusNode: _focusNode,
-                    child: TextField(
-                      controller: _commandController,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        color: Colors.white,
-                        fontSize: 14,
-                      ),
-                      decoration: InputDecoration(
-                        border: InputBorder.none,
-                        hintText: _isConnected ? 'Type a command...' : 'Not connected',
-                        hintStyle: TextStyle(
-                          color: Colors.grey[600],
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                      enabled: _isConnected,
-                      onSubmitted: _isConnected ? _sendCommand : null,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+        );
       },
     );
   }
