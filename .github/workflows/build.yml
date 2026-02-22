@@ -27,49 +27,18 @@ jobs:
         run: flutter pub get
 
       - name: Run tests with coverage
-        id: tests
-        run: |
-          flutter test --coverage
-
-      - name: Display test summary
-        if: always()
-        run: |
-          echo "=========================================="
-          echo "Test Summary"
-          echo "=========================================="
-          echo ""
-          echo "49 unit tests expected to PASS"
-          echo "4 integration tests expected to SKIP (requires platform binding)"
-          echo ""
-          echo "Exit code 1 from 'flutter test' means tests were SKIPPED, not FAILED"
-          echo "This is normal Flutter behavior for integration tests"
-          echo "=========================================="
-
-      - name: Check if coverage was generated
-        if: success() || steps.tests.outcome == 'success'
-        id: check_coverage
-        run: |
-          if [ -f coverage/lcov.info ]; then
-            echo "✅ Coverage file generated successfully"
-            ls -lh coverage/lcov.info
-          else
-            echo "⚠️ Coverage file not found (tests may have failed)"
-            exit 1
+        run: flutter test --coverage
 
       - name: Upload coverage to Codecov
-        if: success() || steps.tests.outcome == 'success'
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage/lcov.info
           fail_ci_if_error: false
-          verbose: true
 
       - name: Build APK (debug)
-        if: success() || steps.tests.outcome == 'success'
         run: flutter build apk --debug
 
       - name: Upload debug APK
-        if: success() || steps.tests.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
@@ -77,11 +46,9 @@ jobs:
           retention-days: 30
 
       - name: Build APK (release)
-        if: success() || steps.tests.outcome == 'success'
         run: flutter build apk --release
 
       - name: Upload release APK
-        if: success() || steps.tests.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
