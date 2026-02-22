@@ -173,6 +173,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
   final _terminalController = xterm_ui.TerminalController();
   final _terminalKey = GlobalKey<xterm_ui.TerminalViewState>();
 
+  // Buffer for handling incomplete UTF-8 sequences
+  final _decodeBuffer = <int>[];
+
   StreamSubscription<List<int>>? _stdoutSubscription;
   StreamSubscription<List<int>>? _stderrSubscription;
 
@@ -214,6 +217,46 @@ class _TerminalScreenState extends State<TerminalScreen> {
     if (_isConnected && _session != null) {
       _session!.stdin.add(utf8.encode(data));
     }
+  }
+
+  String _normalizeLineEndings(String text) {
+    // Normalize line endings: CRLF -> LF
+    // This prevents double newlines on Windows/Linux systems
+    return text.replaceAll('\r\n', '\n');
+  }
+
+  /// Decode bytes with proper UTF-8 handling for incomplete sequences
+  String _decodeUtf8(List<int> bytes) {
+    // Add new bytes to buffer
+    _decodeBuffer.addAll(bytes);
+
+    // Try to decode and remove successfully decoded bytes
+    String result = '';
+    while (_decodeBuffer.isNotEmpty) {
+      try {
+        // Try to decode as much as possible
+        final decoded = utf8.decode(_decodeBuffer, allowMalformed: false);
+        result += decoded;
+        _decodeBuffer.clear();
+        break;
+      } on FormatException {
+        // Incomplete UTF-8 sequence - remove one byte and try again
+        // This handles multi-byte characters split across stream chunks
+        if (_decodeBuffer.length > 4) {
+          // If we have more than 4 bytes and still can't decode,
+          // something is wrong - just decode what we can
+          final decoded = utf8.decode(_decodeBuffer, allowMalformed: true);
+          result += decoded;
+          _decodeBuffer.clear();
+          break;
+        }
+        // Remove the last byte (incomplete sequence starter)
+        // and keep it for next chunk
+        _decodeBuffer.removeLast();
+      }
+    }
+
+    return result;
   }
 
   void _resizeTerminal(int cols, int rows) {
@@ -342,8 +385,10 @@ class _TerminalScreenState extends State<TerminalScreen> {
       // Listen for output from stdout
       _stdoutSubscription = _session!.stdout.listen(
         (data) {
-          // Write directly to xterm terminal - it handles ANSI codes
-          _terminal.write(String.fromCharCodes(data));
+          // Decode UTF-8 properly to handle multi-byte characters and incomplete sequences
+          // Normalize line endings to prevent double newlines
+          final output = _normalizeLineEndings(_decodeUtf8(data));
+          _terminal.write(output);
         },
         onError: (error) {
           _addError('Session error: $error');
@@ -356,7 +401,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
       // Listen for stderr
       _stderrSubscription = _session!.stderr.listen(
         (data) {
-          final error = String.fromCharCodes(data);
+          final error = _normalizeLineEndings(_decodeUtf8(data));
           _terminal.write('\x1b[31m$error\x1b[0m'); // Red color for stderr
         },
       );
