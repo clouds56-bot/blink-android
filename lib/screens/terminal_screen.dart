@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/ssh_connection.dart';
 import '../services/connection_service.dart';
+import '../utils/ansi_formatter.dart';
 
 class TerminalScreen extends StatefulWidget {
   final SSHConnection connection;
@@ -346,8 +347,11 @@ class _TerminalScreenState extends State<TerminalScreen> {
   }
 
   void _addOutput(String text) {
+    // Strip ANSI escape codes and control sequences
+    final cleanedText = AnsiFormatter.stripAnsiCodes(text);
+
     setState(() {
-      _output.add(text);
+      _output.add(cleanedText);
     });
 
     // Auto-scroll to bottom
