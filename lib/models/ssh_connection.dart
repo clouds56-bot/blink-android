@@ -14,6 +14,7 @@ class SSHConnection {
   bool isFavorite;
 
   SSHConnection({
+    String? id,
     required this.name,
     required this.host,
     this.port = 22,
@@ -23,10 +24,11 @@ class SSHConnection {
     this.privateKeyContent,
     this.hostKeyFingerprints,
     this.isFavorite = false,
-  }) : id = const Uuid().v4(),
+  }) : id = id ?? const Uuid().v4(),
        lastConnected = DateTime.now();
 
   SSHConnection copyWith({
+    String? id,
     String? name,
     String? host,
     int? port,
@@ -39,6 +41,7 @@ class SSHConnection {
     bool? isFavorite,
   }) {
     return SSHConnection(
+      id: id ?? this.id,
       name: name ?? this.name,
       host: host ?? this.host,
       port: port ?? this.port,
@@ -69,6 +72,7 @@ class SSHConnection {
 
   factory SSHConnection.fromJson(Map<String, dynamic> json) {
     return SSHConnection(
+      id: json['id'] as String?,
       name: json['name'] as String,
       host: json['host'] as String,
       port: json['port'] as int? ?? 22,

@@ -56,6 +56,9 @@ dependencies:
   # Shared preferences
   shared_preferences: ^2.3.3
 
+  # File picker for importing keys
+  file_picker: ^8.1.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -66,6 +69,9 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+
+  # Mocking for tests
+  mocktail: ^1.0.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/ssh_connection.dart';
 import '../services/connection_service.dart';
 
@@ -178,10 +180,37 @@ class _AddConnectionScreenState extends State<AddConnectionScreen> {
   }
 
   Future<void> _importPrivateKey() async {
-    // TODO: Implement file picker for private key
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('File picker not implemented yet')),
-    );
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pem', 'key', 'pem'],
+        withData: true,
+      );
+
+      if (result != null && result.files.single.bytes != null) {
+        setState(() {
+          _privateKeyContent = String.fromCharCodes(result.files.single.bytes!);
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Private key imported successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error importing private key: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _saveConnection() async {
