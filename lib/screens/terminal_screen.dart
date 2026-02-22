@@ -375,8 +375,8 @@ class _TerminalScreenState extends State<TerminalScreen> {
     _addOutput('\$ $command');
 
     try {
-      // Send command with newline
-      _session!.stdin.add(utf8.encode('$command\n'));
+      // Send command with carriage return (Enter in terminal/PTY)
+      _session!.stdin.add(utf8.encode('$command\r'));
     } catch (e) {
       _addError('Failed to send command: $e');
     }
