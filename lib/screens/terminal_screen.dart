@@ -27,7 +27,8 @@ class _TerminalScreenState extends State<TerminalScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _commandController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  StreamSubscription<String>? _outputSubscription;
+  StreamSubscription<List<int>>? _stdoutSubscription;
+  StreamSubscription<List<int>>? _stderrSubscription;
 
   @override
   void initState() {
@@ -37,7 +38,8 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
   @override
   void dispose() {
-    _outputSubscription?.cancel();
+    _stdoutSubscription?.cancel();
+    _stderrSubscription?.cancel();
     _session?.close();
     _client?.close();
     _commandController.dispose();
@@ -57,7 +59,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
     try {
       // Create socket
-      final socket = await Socket.connect(
+      final socket = await SSHSocket.connect(
         widget.connection.host,
         widget.connection.port,
         timeout: const Duration(seconds: 15),
@@ -77,15 +79,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
           // Return saved password if available
           return savedPassword;
         },
-        onPrivateKeyRequest: () async {
-          // Return private key if available
-          if (widget.connection.privateKeyContent != null) {
-            return SSHKeyPair(
-              privateKey: widget.connection.privateKeyContent!,
-            );
-          }
-          return null;
-        },
+        identities: widget.connection.privateKeyContent != null
+            ? SSHKeyPair.fromPem(widget.connection.privateKeyContent!)
+            : null,
       );
 
       _addOutput('SSH client created, authenticating...');
@@ -99,7 +95,6 @@ class _TerminalScreenState extends State<TerminalScreen> {
         pty: SSHPtyConfig(
           width: 80,
           height: 24,
-          term: 'xterm-256color',
         ),
       );
 
@@ -110,8 +105,8 @@ class _TerminalScreenState extends State<TerminalScreen> {
         _isConnecting = false;
       });
 
-      // Listen for output
-      _outputSubscription = _session!.stream.listen(
+      // Listen for output from stdout
+      _stdoutSubscription = _session!.stdout.listen(
         (data) {
           final output = utf8.decode(data);
           _addOutput(output);
@@ -121,6 +116,14 @@ class _TerminalScreenState extends State<TerminalScreen> {
         },
         onDone: () {
           _addError('Connection closed');
+        },
+      );
+
+      // Listen for stderr
+      _stderrSubscription = _session!.stderr.listen(
+        (data) {
+          final error = utf8.decode(data);
+          _addError('Remote error: $error');
         },
       );
 
@@ -165,7 +168,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
     try {
       // Send command with newline
-      _session!.write('$command\n');
+      _session!.stdin.add(utf8.encode('$command\n'));
     } catch (e) {
       _addError('Failed to send command: $e');
     }
@@ -186,18 +189,18 @@ class _TerminalScreenState extends State<TerminalScreen> {
       } else if (key == LogicalKeyboardKey.control) {
         // Ctrl+C
         if (event.data.logicalKey == LogicalKeyboardKey.keyC) {
-          _session!.write('\x03'); // SIGINT
+          _session!.stdin.add(utf8.encode('\x03')); // SIGINT
         }
       } else if (key == LogicalKeyboardKey.arrowUp) {
-        _session!.write('\x1b[A'); // Up arrow
+        _session!.stdin.add(utf8.encode('\x1b[A')); // Up arrow
       } else if (key == LogicalKeyboardKey.arrowDown) {
-        _session!.write('\x1b[B'); // Down arrow
+        _session!.stdin.add(utf8.encode('\x1b[B')); // Down arrow
       } else if (key == LogicalKeyboardKey.arrowLeft) {
-        _session!.write('\x1b[D'); // Left arrow
+        _session!.stdin.add(utf8.encode('\x1b[D')); // Left arrow
       } else if (key == LogicalKeyboardKey.arrowRight) {
-        _session!.write('\x1b[C'); // Right arrow
+        _session!.stdin.add(utf8.encode('\x1b[C')); // Right arrow
       } else if (key == LogicalKeyboardKey.tab) {
-        _session!.write('\t'); // Tab
+        _session!.stdin.add(utf8.encode('\t')); // Tab
       }
     }
   }
