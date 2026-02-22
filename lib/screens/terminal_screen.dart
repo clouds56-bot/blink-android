@@ -260,6 +260,15 @@ class _TerminalScreenState extends State<TerminalScreen> {
       // Determine if we should use key authentication
       final useKeyAuth = widget.connection.privateKeyContent != null && password == null;
 
+      // Helper to save password after successful authentication
+      Future<void> savePasswordIfNeeded() async {
+        if (password != null && !useKeyAuth) {
+          _hasPromptedForPassword = true;
+          await connectionService.savePassword(widget.connection.id, password!);
+          _addOutput('Password saved securely.');
+        }
+      }
+
       // Create SSH client
       _client = SSHClient(
         socket,
@@ -282,11 +291,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
       _addOutput('Authentication successful!');
 
       // Save password on successful authentication (if provided and not using key)
-      if (password != null && !useKeyAuth) {
-        _hasPromptedForPassword = true;
-        await connectionService.savePassword(widget.connection.id, password!);
-        _addOutput('Password saved securely.');
-      }
+      await savePasswordIfNeeded();
 
       // Create PTY session
       _session = await _client!.shell(
