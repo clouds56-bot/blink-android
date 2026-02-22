@@ -1,4 +1,4 @@
-package com.example.blink_android
+package com.clouds56.blink_android
 
 import io.flutter.embedding.android.FlutterActivity
 

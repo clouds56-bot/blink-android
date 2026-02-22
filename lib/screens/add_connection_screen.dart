@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -22,6 +21,7 @@ class _AddConnectionScreenState extends State<AddConnectionScreen> {
   late TextEditingController _usernameController;
   late TextEditingController _passwordController;
   String _privateKeyContent = '';
+  bool _savePassword = true;
 
   @override
   void initState() {
@@ -137,7 +137,19 @@ class _AddConnectionScreenState extends State<AddConnectionScreen> {
               ),
               obscureText: true,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            CheckboxListTile(
+              title: const Text('Save password securely'),
+              value: _savePassword,
+              onChanged: (value) {
+                setState(() {
+                  _savePassword = value ?? true;
+                });
+              },
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            const SizedBox(height: 8),
             ElevatedButton.icon(
               onPressed: _importPrivateKey,
               icon: const Icon(Icons.key),
@@ -226,16 +238,26 @@ class _AddConnectionScreenState extends State<AddConnectionScreen> {
       privateKeyContent: _privateKeyContent.isEmpty ? null : _privateKeyContent,
     );
 
+    final connectionService = context.read<ConnectionService>();
     final password = _passwordController.text;
+    final connectionId = widget.connection == null
+        ? await connectionService.addConnection(connection)
+        : widget.connection!.id;
 
-    if (widget.connection == null) {
-      await context.read<ConnectionService>().addConnection(connection);
-      if (password.isNotEmpty) {
-        await context
-            .read<ConnectionService>()
-            .savePassword(connection.id, password);
-      }
-    } else {
+    // Handle password saving/deleting
+    if (_savePassword && password.isNotEmpty) {
+      // Save password securely
+      await connectionService.savePassword(connectionId, password);
+    } else if (!_savePassword && widget.connection != null) {
+      // New connection, don't save password
+      // Password won't be saved
+    } else if (!_savePassword && widget.connection != null && password.isEmpty) {
+      // Editing, password field cleared and checkbox unchecked
+      // Delete saved password
+      await connectionService.deletePassword(connectionId);
+    }
+
+    if (widget.connection != null) {
       final updated = widget.connection!.copyWith(
         name: connection.name,
         host: connection.host,
@@ -243,12 +265,7 @@ class _AddConnectionScreenState extends State<AddConnectionScreen> {
         username: connection.username,
         privateKeyContent: connection.privateKeyContent,
       );
-      await context.read<ConnectionService>().updateConnection(updated);
-      if (password.isNotEmpty) {
-        await context
-            .read<ConnectionService>()
-            .savePassword(updated.id, password);
-      }
+      await connectionService.updateConnection(updated);
     }
 
     if (mounted) {

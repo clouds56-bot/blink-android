@@ -17,6 +17,148 @@ class TerminalScreen extends StatefulWidget {
   State<TerminalScreen> createState() => _TerminalScreenState();
 }
 
+// Password prompt dialog
+class _PasswordDialog extends StatefulWidget {
+  final String host;
+  final String username;
+  final String? initialPassword;
+  final bool hasPrivateKey;
+  final Future<String?> Function(String password) onSubmit;
+  final VoidCallback onCancel;
+
+  const _PasswordDialog({
+    super.key,
+    required this.host,
+    required this.username,
+    this.initialPassword,
+    required this.hasPrivateKey,
+    required this.onSubmit,
+    required this.onCancel,
+  });
+
+  @override
+  State<_PasswordDialog> createState() => _PasswordDialogState();
+}
+
+class _PasswordDialogState extends State<_PasswordDialog> {
+  final _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  bool _obscurePassword = true;
+  bool _savePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _passwordController.text = widget.initialPassword ?? '';
+  }
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (_formKey.currentState?.validate() ?? false) {
+      Navigator.of(context).pop(_passwordController.text);
+      widget.onSubmit(_passwordController.text);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          const Icon(Icons.lock, color: Colors.orange),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Authenticate',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${widget.username}@${widget.host}',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              widget.hasPrivateKey
+                  ? 'Enter password for private key (if encrypted):'
+                  : 'Enter SSH password:',
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              autofillHints: widget.hasPrivateKey
+                  ? [AutofillHints.password]
+                  : [AutofillHints.password, AutofillHints.username],
+              decoration: InputDecoration(
+                labelText: 'Password',
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.key),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value!.isEmpty) {
+                  return 'Password is required';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 8),
+            CheckboxListTile(
+              title: const Text('Save password securely'),
+              value: _savePassword,
+              onChanged: (value) {
+                setState(() {
+                  _savePassword = value ?? true;
+                });
+              },
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton.icon(
+          icon: const Icon(Icons.cancel),
+          label: const Text('Cancel'),
+          onPressed: () {
+            Navigator.of(context).pop();
+            widget.onCancel();
+          },
+        ),
+        FilledButton.icon(
+          icon: const Icon(Icons.login),
+          label: const Text('Connect'),
+          onPressed: _submit,
+        ),
+      ],
+    );
+  }
+}
+
 class _TerminalScreenState extends State<TerminalScreen> {
   SSHClient? _client;
   SSHSession? _session;
@@ -29,6 +171,10 @@ class _TerminalScreenState extends State<TerminalScreen> {
   final FocusNode _focusNode = FocusNode();
   StreamSubscription<List<int>>? _stdoutSubscription;
   StreamSubscription<List<int>>? _stderrSubscription;
+
+  // Password management
+  String? _currentPassword;
+  bool _hasPromptedForPassword = false;
 
   @override
   void initState() {
@@ -49,10 +195,52 @@ class _TerminalScreenState extends State<TerminalScreen> {
   }
 
   Future<void> _connect() async {
+    final connectionService = context.read<ConnectionService>();
+
+    // First, try to get saved password
+    final savedPassword = await connectionService.getSavedPassword(widget.connection.id);
+
+    // If we have a saved password or private key, try connecting directly
+    if (savedPassword != null || widget.connection.privateKeyContent != null) {
+      await _attemptConnection(savedPassword);
+    } else {
+      // No saved credentials - prompt user
+      await _promptForPasswordAndConnect();
+    }
+  }
+
+  Future<void> _promptForPasswordAndConnect([String? initialPassword]) async {
+    final connectionService = context.read<ConnectionService>();
+
+    final password = await showDialog<String?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _PasswordDialog(
+        host: widget.connection.host,
+        username: widget.connection.username,
+        initialPassword: initialPassword ?? _currentPassword,
+        hasPrivateKey: widget.connection.privateKeyContent != null,
+        onSubmit: (password) async {
+          _currentPassword = password;
+          await _attemptConnection(password);
+        },
+        onCancel: () {
+          setState(() {
+            _isConnecting = false;
+          });
+          Navigator.of(context).pop();
+        },
+      ),
+    );
+  }
+
+  Future<void> _attemptConnection(String? password) async {
     setState(() {
       _isConnecting = true;
-      _output.clear();
-      _error = '';
+      if (_hasPromptedForPassword) {
+        _output.clear();
+        _error = '';
+      }
     });
 
     _addOutput('Connecting to ${widget.connection.username}@${widget.connection.host}:${widget.connection.port}...');
@@ -67,28 +255,38 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
       _addOutput('Socket connected, establishing SSH session...');
 
-      // Get password from secure storage
       final connectionService = context.read<ConnectionService>();
-      final savedPassword = await connectionService.getSavedPassword(widget.connection.id);
+
+      // Determine if we should use key authentication
+      final useKeyAuth = widget.connection.privateKeyContent != null && password == null;
 
       // Create SSH client
       _client = SSHClient(
         socket,
         username: widget.connection.username,
         onPasswordRequest: () async {
-          // Return saved password if available
-          return savedPassword;
+          // Return provided password or saved password
+          return password ?? await context.read<ConnectionService>().getSavedPassword(widget.connection.id);
         },
-        identities: widget.connection.privateKeyContent != null
+        identities: useKeyAuth
             ? SSHKeyPair.fromPem(widget.connection.privateKeyContent!)
             : null,
       );
 
       _addOutput('SSH client created, authenticating...');
 
+      _addOutput(useKeyAuth ? 'Authenticating with private key...' : 'Authenticating with password...');
+
       // Authenticate
       await _client!.authenticated;
       _addOutput('Authentication successful!');
+
+      // Save password on successful authentication (if provided and not using key)
+      if (password != null && !useKeyAuth) {
+        _hasPromptedForPassword = true;
+        await connectionService.savePassword(widget.connection.id, password!);
+        _addOutput('Password saved securely.');
+      }
 
       // Create PTY session
       _session = await _client!.shell(
@@ -129,7 +327,12 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
       // Request focus for keyboard
       _focusNode.requestFocus();
-    } catch (e) {
+    } on Exception catch (e) {
+      _addError('Authentication failed: $e');
+
+      // If authentication failed, prompt for password again
+      await _promptForPasswordAndConnect(password ?? _currentPassword);
+    } on Exception catch (e) {
       _addError('Connection failed: $e');
       setState(() {
         _isConnecting = false;

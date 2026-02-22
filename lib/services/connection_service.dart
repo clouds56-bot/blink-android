@@ -103,6 +103,10 @@ class ConnectionService extends ChangeNotifier {
     await _secureStorage.write(key: 'password_$connectionId', value: password);
   }
 
+  Future<void> deletePassword(String connectionId) async {
+    await _secureStorage.delete(key: 'password_$connectionId');
+  }
+
   Future<String?> getSavedPrivateKey(String connectionId) async {
     return await _secureStorage.read(key: 'privatekey_$connectionId');
   }
