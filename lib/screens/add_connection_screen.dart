@@ -247,14 +247,14 @@ class _AddConnectionScreenState extends State<AddConnectionScreen> {
     // Handle password saving/deleting
     if (_savePassword && password.isNotEmpty) {
       // Save password securely
-      await context.read<ConnectionService>().savePassword(connectionId, password);
+      context.read<ConnectionService>().savePassword(connectionId, password);
     } else if (!_savePassword && widget.connection != null) {
       // New connection, don't save password
       // Password won't be saved
     } else if (!_savePassword && widget.connection != null && password.isEmpty) {
       // Editing, password field cleared and checkbox unchecked
       // Delete saved password
-      await context.read<ConnectionService>().deletePassword(connectionId);
+      context.read<ConnectionService>().deletePassword(connectionId);
     }
 
     if (widget.connection != null) {
