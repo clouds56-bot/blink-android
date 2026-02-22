@@ -240,9 +240,10 @@ class _AddConnectionScreenState extends State<AddConnectionScreen> {
 
     final connectionService = context.read<ConnectionService>();
     final password = _passwordController.text;
-    final connectionId = widget.connection == null
-        ? await connectionService.addConnection(connection)
-        : widget.connection!.id;
+    final connectionId = widget.connection?.id ?? connection.id;
+    if (widget.connection == null) {
+      await connectionService.addConnection(connection);
+    }
 
     // Handle password saving/deleting
     if (_savePassword && password.isNotEmpty) {
