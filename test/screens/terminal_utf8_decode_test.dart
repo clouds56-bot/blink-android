@@ -28,6 +28,22 @@ void main() {
       expect(buffer, isEmpty);
     });
 
+    test('preserves split two-byte UTF-8 sequence across chunks', () {
+      final buffer = <int>[];
+
+      expect(
+        decodeTerminalUtf8Chunk([0xC2], buffer),
+        '',
+      );
+      expect(buffer, [0xC2]);
+
+      expect(
+        decodeTerminalUtf8Chunk([0xA2], buffer),
+        '¢',
+      );
+      expect(buffer, isEmpty);
+    });
+
     test('flushes malformed leading continuation byte', () {
       final buffer = <int>[];
 
