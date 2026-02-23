@@ -26,72 +26,77 @@ class AnsiFormatter {
     result = result.replaceAll('\x7f', '');
 
     final output = StringBuffer();
-    final line = <String>[];
+    final lineBuffer = <String>[];
     var cursorX = 0;
 
     void writeChar(String char) {
-      if (cursorX < line.length) {
-        line[cursorX] = char;
+      if (cursorX < lineBuffer.length) {
+        lineBuffer[cursorX] = char;
       } else {
-        while (line.length < cursorX) {
-          line.add(' ');
+        while (lineBuffer.length < cursorX) {
+          lineBuffer.add(' ');
         }
-        line.add(char);
+        lineBuffer.add(char);
       }
       cursorX++;
     }
 
     void clearToEndOfLine() {
-      if (cursorX < line.length) {
-        line.removeRange(cursorX, line.length);
+      if (cursorX < lineBuffer.length) {
+        lineBuffer.removeRange(cursorX, lineBuffer.length);
       }
     }
 
-    var i = 0;
-    while (i < result.length) {
-      final char = result[i];
+    var index = 0;
+    while (index < result.length) {
+      final char = result[index];
 
       if (char == '\n') {
-        output.write(line.join());
+        output.write(lineBuffer.join());
         output.write('\n');
-        line.clear();
+        lineBuffer.clear();
         cursorX = 0;
-        i++;
+        index++;
         continue;
       }
 
       if (char == '\r') {
         cursorX = 0;
-        i++;
+        index++;
         continue;
       }
 
       // Handle CSI escape sequences: ESC [ ... <final byte>
-      if (char == '\x1b' && i + 1 < result.length && result[i + 1] == '[') {
-        var j = i + 2;
-        while (j < result.length) {
-          final codeUnit = result.codeUnitAt(j);
+      if (char == '\x1b' && index + 1 < result.length && result[index + 1] == '[') {
+        var sequenceEnd = index + 2;
+        while (sequenceEnd < result.length) {
+          final codeUnit = result.codeUnitAt(sequenceEnd);
+          // CSI final byte range is ASCII '@' (0x40) through '~' (0x7E).
           if (codeUnit >= 0x40 && codeUnit <= 0x7E) {
             break;
           }
-          j++;
+          sequenceEnd++;
         }
 
-        if (j < result.length) {
-          final finalByte = result[j];
+        if (sequenceEnd < result.length) {
+          final finalByte = result[sequenceEnd];
           if (finalByte == 'K') {
             clearToEndOfLine();
           }
-          i = j + 1;
+          // Other CSI commands are formatting/cursor control and are stripped.
+          index = sequenceEnd + 1;
           continue;
         }
+
+        // Incomplete CSI sequence at end of input, drop it.
+        break;
       }
 
       writeChar(char);
-      i++;
+      index++;
     }
 
-    output.write(line.join());
+    output.write(lineBuffer.join());
     return output.toString();
   }
 }
