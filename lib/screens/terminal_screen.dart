@@ -25,6 +25,53 @@ class TerminalScreen extends StatefulWidget {
 /// SSH server stdout/stderr should be written as received.
 String formatTerminalStatusLine(String text) => '$text\r\n';
 
+const _maxUtf8ContinuationBytes = 3;
+
+/// Returns how many continuation bytes are expected for a UTF-8 start byte.
+///
+/// Returns 0 for ASCII bytes and bytes that are not valid UTF-8 start bytes.
+int _expectedContinuationBytes(int startByte) {
+  if ((startByte & 0xE0) == 0xC0) {
+    return 1;
+  }
+  if ((startByte & 0xF0) == 0xE0) {
+    return 2;
+  }
+  if ((startByte & 0xF8) == 0xF0) {
+    return 3;
+  }
+  return 0;
+}
+
+/// Returns true when bytes end with an incomplete UTF-8 multi-byte sequence.
+bool _hasIncompleteUtf8Suffix(List<int> bytes) {
+  if (bytes.isEmpty) {
+    return false;
+  }
+
+  var continuationCount = 0;
+  for (var i = bytes.length - 1; i >= 0; i--) {
+    if (continuationCount == _maxUtf8ContinuationBytes) {
+      break;
+    }
+    if ((bytes[i] & 0xC0) == 0x80) {
+      continuationCount++;
+      continue;
+    }
+    break;
+  }
+
+  final startIndex = bytes.length - continuationCount - 1;
+  if (startIndex < 0) {
+    return false;
+  }
+
+  final startByte = bytes[startIndex];
+  final expectedContinuation = _expectedContinuationBytes(startByte);
+
+  return expectedContinuation > continuationCount;
+}
+
 String decodeTerminalUtf8Chunk(List<int> bytes, List<int> decodeBuffer) {
   decodeBuffer.addAll(bytes);
 
@@ -40,7 +87,9 @@ String decodeTerminalUtf8Chunk(List<int> bytes, List<int> decodeBuffer) {
     // Keep trying with fewer trailing bytes for split UTF-8 sequences.
   }
 
-  final maxTrailingBytes = decodeBuffer.length > 3 ? 3 : decodeBuffer.length - 1;
+  final maxTrailingBytes = decodeBuffer.length > _maxUtf8ContinuationBytes
+      ? _maxUtf8ContinuationBytes
+      : decodeBuffer.length - 1;
   for (var trailingBytes = 1; trailingBytes <= maxTrailingBytes; trailingBytes++) {
     final splitIndex = decodeBuffer.length - trailingBytes;
     if (splitIndex <= 0) {
@@ -61,6 +110,11 @@ String decodeTerminalUtf8Chunk(List<int> bytes, List<int> decodeBuffer) {
     } on FormatException {
       // Keep trying with fewer trailing bytes to handle split UTF-8 sequences.
     }
+  }
+
+  if (_hasIncompleteUtf8Suffix(decodeBuffer)) {
+    // Keep likely incomplete UTF-8 starter bytes for the next chunk.
+    return '';
   }
 
   final decoded = utf8.decode(decodeBuffer, allowMalformed: true);

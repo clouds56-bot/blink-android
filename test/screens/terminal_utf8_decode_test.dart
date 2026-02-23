@@ -27,5 +27,15 @@ void main() {
       );
       expect(buffer, isEmpty);
     });
+
+    test('flushes malformed leading continuation byte', () {
+      final buffer = <int>[];
+
+      expect(
+        decodeTerminalUtf8Chunk([0x80], buffer),
+        '�',
+      );
+      expect(buffer, isEmpty);
+    });
   });
 }
