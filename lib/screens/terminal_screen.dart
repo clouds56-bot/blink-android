@@ -19,6 +19,12 @@ class TerminalScreen extends StatefulWidget {
   State<TerminalScreen> createState() => _TerminalScreenState();
 }
 
+/// Formats app-generated status/error messages for terminal display.
+///
+/// Use this only for local UI status lines we write ourselves.
+/// SSH server stdout/stderr should be written as received.
+String formatTerminalStatusLine(String text) => '$text\r\n';
+
 // Password prompt dialog
 class _PasswordDialog extends StatefulWidget {
   final String host;
@@ -197,7 +203,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
       onOutput: _onTerminalOutput,
     );
 
-    _terminal.write('Connecting to ${widget.connection.username}@${widget.connection.host}:${widget.connection.port}...\n');
+    _terminal.write(formatTerminalStatusLine('Connecting to ${widget.connection.username}@${widget.connection.host}:${widget.connection.port}...'));
 
     _connect();
   }
@@ -311,7 +317,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
       }
     });
 
-    _terminal.write('Connecting to ${widget.connection.username}@${widget.connection.host}:${widget.connection.port}...\n');
+    _terminal.write(formatTerminalStatusLine('Connecting to ${widget.connection.username}@${widget.connection.host}:${widget.connection.port}...'));
 
     try {
       // Create socket
@@ -321,7 +327,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
         timeout: const Duration(seconds: 15),
       );
 
-      _terminal.write('Socket connected, establishing SSH session...\n');
+      _terminal.write(formatTerminalStatusLine('Socket connected, establishing SSH session...'));
 
       final connectionService = context.read<ConnectionService>();
 
@@ -333,7 +339,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
         if (password != null && !useKeyAuth) {
           _hasPromptedForPassword = true;
           await connectionService.savePassword(widget.connection.id, password!);
-          _terminal.write('Password saved securely.\n');
+          _terminal.write(formatTerminalStatusLine('Password saved securely.'));
         }
       }
 
@@ -350,13 +356,13 @@ class _TerminalScreenState extends State<TerminalScreen> {
             : null,
       );
 
-      _terminal.write('SSH client created, authenticating...\n');
+      _terminal.write(formatTerminalStatusLine('SSH client created, authenticating...'));
 
-      _terminal.write(useKeyAuth ? 'Authenticating with private key...\n' : 'Authenticating with password...\n');
+      _terminal.write(formatTerminalStatusLine(useKeyAuth ? 'Authenticating with private key...' : 'Authenticating with password...'));
 
       // Authenticate
       await _client!.authenticated;
-      _terminal.write('Authentication successful!\n');
+      _terminal.write(formatTerminalStatusLine('Authentication successful!'));
 
       // Save password on successful authentication (if provided and not using key)
       await savePasswordIfNeeded();
@@ -369,7 +375,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
         ),
       );
 
-      _terminal.write('PTY session created.\n');
+      _terminal.write(formatTerminalStatusLine('PTY session created.'));
 
       setState(() {
         _isConnected = true;
@@ -414,7 +420,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     setState(() {
       _error = error;
     });
-    _terminal.write('\x1b[31m[ERROR] $error\x1b[0m\n');
+    _terminal.write(formatTerminalStatusLine('\x1b[31m[ERROR] $error\x1b[0m'));
   }
 
   @override
