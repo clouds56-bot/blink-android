@@ -205,16 +205,35 @@ Added SFTP functionality to browse remote file systems via SSH
 
 ## Status
 
-✅ **MVP Complete + Enhancements**
+✅ **COMPLETE - All Features Merged to Main**
+
+### ✅ All PRs Merged
+- PR #6 - SFTP file explorer MVP (merged to main)
+- PR #7 - File viewer for text and image files (merged to main)
+- Feature branch deleted after merge
+
+### ✅ Final Implementation
 - Core SFTP operations working
 - File explorer UI functional with enhancements
+- File viewer for text and image files
 - Upload files from device
 - Create folders with dialog
 - Pull-to-refresh support
 - Haptic feedback
 - Tests passing
 - Code clean and analyzed
-- Ready for user testing
+- Ready for production use
+
+## Implementation Timeline
+
+1. **Initial Commit** - SFTP service + file explorer UI
+2. **Enhancement 1** - File upload picker + file count
+3. **Enhancement 2** - Pull-to-refresh + haptic feedback
+4. **Enhancement 3** - Create folder dialog
+5. **File Viewer** - Text and image viewer with zoom
+6. **Merge** - All features merged to main branch
+
+All commits are now on `main` branch and pushed to GitHub.
 
 ## Recent Commits (Post-MVP)
 
