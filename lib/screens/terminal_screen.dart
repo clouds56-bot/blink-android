@@ -20,6 +20,109 @@ class TerminalScreen extends StatefulWidget {
   State<TerminalScreen> createState() => _TerminalScreenState();
 }
 
+/// Formats app-generated status/error messages for terminal display.
+///
+/// Use this only for local UI status lines we write ourselves.
+/// SSH server stdout/stderr should be written as received.
+String formatTerminalStatusLine(String text) => '$text\r\n';
+
+const _maxUtf8ContinuationBytes = 3;
+
+/// Returns how many continuation bytes are expected for a UTF-8 start byte.
+///
+/// Returns 0 for ASCII bytes and bytes that are not valid UTF-8 start bytes.
+int _expectedContinuationBytes(int startByte) {
+  if ((startByte & 0xE0) == 0xC0) {
+    return 1;
+  }
+  if ((startByte & 0xF0) == 0xE0) {
+    return 2;
+  }
+  if ((startByte & 0xF8) == 0xF0) {
+    return 3;
+  }
+  return 0;
+}
+
+/// Returns true when bytes end with an incomplete UTF-8 multi-byte sequence.
+bool _hasIncompleteUtf8Suffix(List<int> bytes) {
+  if (bytes.isEmpty) {
+    return false;
+  }
+
+  var continuationCount = 0;
+  for (var i = bytes.length - 1; i >= 0; i--) {
+    if (continuationCount == _maxUtf8ContinuationBytes) {
+      break;
+    }
+    if ((bytes[i] & 0xC0) == 0x80) {
+      continuationCount++;
+      continue;
+    }
+    break;
+  }
+
+  final startIndex = bytes.length - continuationCount - 1;
+  if (startIndex < 0) {
+    return false;
+  }
+
+  final startByte = bytes[startIndex];
+  final expectedContinuation = _expectedContinuationBytes(startByte);
+
+  return expectedContinuation > continuationCount;
+}
+
+String decodeTerminalUtf8Chunk(List<int> bytes, List<int> decodeBuffer) {
+  decodeBuffer.addAll(bytes);
+
+  if (decodeBuffer.isEmpty) {
+    return '';
+  }
+
+  try {
+    final decoded = utf8.decode(decodeBuffer, allowMalformed: false);
+    decodeBuffer.clear();
+    return decoded;
+  } on FormatException {
+    // Keep trying with fewer trailing bytes for split UTF-8 sequences.
+  }
+
+  final maxTrailingBytes = decodeBuffer.length > _maxUtf8ContinuationBytes
+      ? _maxUtf8ContinuationBytes
+      : decodeBuffer.length - 1;
+  for (var trailingBytes = 1; trailingBytes <= maxTrailingBytes; trailingBytes++) {
+    final splitIndex = decodeBuffer.length - trailingBytes;
+    if (splitIndex <= 0) {
+      continue;
+    }
+
+    try {
+      final decoded = utf8.decode(
+        decodeBuffer.sublist(0, splitIndex),
+        allowMalformed: false,
+      );
+
+      final pendingBytes = decodeBuffer.sublist(splitIndex);
+      decodeBuffer
+        ..clear()
+        ..addAll(pendingBytes);
+      return decoded;
+    } on FormatException {
+      // Keep trying with fewer trailing bytes to handle split UTF-8 sequences.
+    }
+  }
+
+  if (_hasIncompleteUtf8Suffix(decodeBuffer)) {
+    // Keep likely incomplete UTF-8 starter bytes for the next chunk.
+    return '';
+  }
+
+  final decoded = utf8.decode(decodeBuffer, allowMalformed: true);
+  decodeBuffer.clear();
+  return decoded;
+}
+
 // Password prompt dialog
 class _PasswordDialog extends StatefulWidget {
   final String host;
@@ -198,7 +301,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
       onOutput: _onTerminalOutput,
     );
 
-    _terminal.write('Connecting to ${widget.connection.username}@${widget.connection.host}:${widget.connection.port}...\n');
+    _terminal.write(formatTerminalStatusLine('Connecting to ${widget.connection.username}@${widget.connection.host}:${widget.connection.port}...'));
 
     _connect();
   }
@@ -220,44 +323,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
     }
   }
 
-  String _normalizeLineEndings(String text) {
-    // Normalize line endings: CRLF -> LF
-    // This prevents double newlines on Windows/Linux systems
-    return text.replaceAll('\r\n', '\n');
-  }
-
   /// Decode bytes with proper UTF-8 handling for incomplete sequences
   String _decodeUtf8(List<int> bytes) {
-    // Add new bytes to buffer
-    _decodeBuffer.addAll(bytes);
-
-    // Try to decode and remove successfully decoded bytes
-    String result = '';
-    while (_decodeBuffer.isNotEmpty) {
-      try {
-        // Try to decode as much as possible
-        final decoded = utf8.decode(_decodeBuffer, allowMalformed: false);
-        result += decoded;
-        _decodeBuffer.clear();
-        break;
-      } on FormatException {
-        // Incomplete UTF-8 sequence - remove one byte and try again
-        // This handles multi-byte characters split across stream chunks
-        if (_decodeBuffer.length > 4) {
-          // If we have more than 4 bytes and still can't decode,
-          // something is wrong - just decode what we can
-          final decoded = utf8.decode(_decodeBuffer, allowMalformed: true);
-          result += decoded;
-          _decodeBuffer.clear();
-          break;
-        }
-        // Remove the last byte (incomplete sequence starter)
-        // and keep it for next chunk
-        _decodeBuffer.removeLast();
-      }
-    }
-
-    return result;
+    return decodeTerminalUtf8Chunk(bytes, _decodeBuffer);
   }
 
   void _resizeTerminal(int cols, int rows) {
@@ -318,7 +386,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
       }
     });
 
-    _terminal.write('Connecting to ${widget.connection.username}@${widget.connection.host}:${widget.connection.port}...\n');
+    _terminal.write(formatTerminalStatusLine('Connecting to ${widget.connection.username}@${widget.connection.host}:${widget.connection.port}...'));
 
     try {
       // Create socket
@@ -328,7 +396,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
         timeout: const Duration(seconds: 15),
       );
 
-      _terminal.write('Socket connected, establishing SSH session...\n');
+      _terminal.write(formatTerminalStatusLine('Socket connected, establishing SSH session...'));
 
       final connectionService = context.read<ConnectionService>();
 
@@ -340,7 +408,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
         if (password != null && !useKeyAuth) {
           _hasPromptedForPassword = true;
           await connectionService.savePassword(widget.connection.id, password!);
-          _terminal.write('Password saved securely.\n');
+          _terminal.write(formatTerminalStatusLine('Password saved securely.'));
         }
       }
 
@@ -357,13 +425,13 @@ class _TerminalScreenState extends State<TerminalScreen> {
             : null,
       );
 
-      _terminal.write('SSH client created, authenticating...\n');
+      _terminal.write(formatTerminalStatusLine('SSH client created, authenticating...'));
 
-      _terminal.write(useKeyAuth ? 'Authenticating with private key...\n' : 'Authenticating with password...\n');
+      _terminal.write(formatTerminalStatusLine(useKeyAuth ? 'Authenticating with private key...' : 'Authenticating with password...'));
 
       // Authenticate
       await _client!.authenticated;
-      _terminal.write('Authentication successful!\n');
+      _terminal.write(formatTerminalStatusLine('Authentication successful!'));
 
       // Save password on successful authentication (if provided and not using key)
       await savePasswordIfNeeded();
@@ -376,7 +444,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
         ),
       );
 
-      _terminal.write('PTY session created.\n');
+      _terminal.write(formatTerminalStatusLine('PTY session created.'));
 
       setState(() {
         _isConnected = true;
@@ -386,9 +454,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
       // Listen for output from stdout
       _stdoutSubscription = _session!.stdout.listen(
         (data) {
-          // Decode UTF-8 properly to handle multi-byte characters and incomplete sequences
-          // Normalize line endings to prevent double newlines
-          final output = _normalizeLineEndings(_decodeUtf8(data));
+          // Decode UTF-8 properly to handle multi-byte characters and incomplete sequences.
+          // Keep line endings from server output unchanged.
+          final output = _decodeUtf8(data);
           _terminal.write(output);
         },
         onError: (error) {
@@ -402,7 +470,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
       // Listen for stderr
       _stderrSubscription = _session!.stderr.listen(
         (data) {
-          final error = _normalizeLineEndings(_decodeUtf8(data));
+          final error = _decodeUtf8(data);
           _terminal.write('\x1b[31m$error\x1b[0m'); // Red color for stderr
         },
       );
@@ -421,7 +489,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     setState(() {
       _error = error;
     });
-    _terminal.write('\x1b[31m[ERROR] $error\x1b[0m\n');
+    _terminal.write(formatTerminalStatusLine('\x1b[31m[ERROR] $error\x1b[0m'));
   }
 
   @override
