@@ -1,4 +1,7 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../models/ssh_connection.dart';
 import '../services/sftp_service.dart';
@@ -240,11 +243,79 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
     }
   }
 
+  Future<void> _uploadFile() async {
+    // Pick a file from the device
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      withData: true,
+    );
+
+    if (result == null || result.files.isEmpty) {
+      return;
+    }
+
+    final file = result.files.first;
+    final fileName = file.name;
+    final filePath = file.path;
+
+    if (filePath == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not access file path'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // Read file bytes
+      final bytes = await File(filePath).readAsBytes();
+
+      // Upload to SFTP
+      final remotePath = _currentPath.endsWith('/')
+          ? '$_currentPath$fileName'
+          : '$_currentPath/$fileName';
+
+      await _sftpService.uploadFile(remotePath, Stream.value(Uint8List.fromList(bytes)));
+
+      // Refresh directory listing
+      await _loadDirectory();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Uploaded $fileName (${bytes.length} bytes)'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to upload: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('SFTP: ${widget.connection.name}'),
+        title: Text('SFTP: ${widget.connection.name} (${_files.length} items)'),
         actions: [
           IconButton(
             icon: const Icon(Icons.home),
@@ -255,6 +326,11 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
             icon: const Icon(Icons.refresh),
             onPressed: _isLoading ? null : _loadDirectory,
             tooltip: 'Refresh',
+          ),
+          IconButton(
+            icon: const Icon(Icons.upload_file),
+            onPressed: _isLoading ? null : _uploadFile,
+            tooltip: 'Upload file',
           ),
         ],
       ),
