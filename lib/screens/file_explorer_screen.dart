@@ -4,6 +4,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
+import 'file_viewer_screen.dart';
 import '../models/ssh_connection.dart';
 import '../services/sftp_service.dart';
 
@@ -90,6 +91,58 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _openFile(RemoteFile file) async {
+    if (file.isDirectory) {
+      // For directories, navigate into them
+      await _navigateTo(file);
+      return;
+    }
+
+    // For files, check if we can view them
+    final name = file.name.toLowerCase();
+    final isText = _isTextFile(name);
+    final isImage = _isImageFile(name);
+
+    if (!isText && !isImage) {
+      // Unsupported file type - show action menu
+      _showFileActions(file);
+      return;
+    }
+
+    HapticFeedback.lightImpact();
+
+    // Navigate to file viewer
+    if (mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => FileViewerScreen(
+            connection: widget.connection,
+            sshClient: widget.sshClient,
+            file: file,
+          ),
+        ),
+      );
+    }
+  }
+
+  bool _isTextFile(String name) {
+    return const [
+      '.txt', '.md', '.json', '.yaml', '.yml',
+      '.xml', '.html', '.css', '.js', '.ts',
+      '.py', '.dart', '.java', '.c', '.cpp',
+      '.h', '.go', '.rs', '.sh', '.bat',
+      '.log', '.conf', '.ini', '.env', '.gitignore',
+      '.dockerfile', 'Dockerfile', 'Makefile', 'README',
+      'LICENSE', 'AUTHORS', 'CHANGELOG',
+    ].any((ext) => name.endsWith(ext));
+  }
+
+  bool _isImageFile(String name) {
+    return const [
+      '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg',
+    ].any((ext) => name.endsWith(ext));
   }
 
   Future<void> _goBack() async {
@@ -510,7 +563,7 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
                             trailing: file.isDirectory
                                 ? const Icon(Icons.chevron_right)
                                 : const Icon(Icons.more_vert),
-                            onTap: () => _navigateTo(file),
+                            onTap: () => _openFile(file),
                             onLongPress: () => _showFileActions(file),
                           );
                         },
