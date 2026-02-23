@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import '../models/ssh_connection.dart';
 import '../services/sftp_service.dart';
 
@@ -68,6 +69,9 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
 
   Future<void> _navigateTo(RemoteFile file) async {
     if (!file.isDirectory) return;
+
+    // Haptic feedback
+    HapticFeedback.lightImpact();
 
     setState(() {
       _isLoading = true;
@@ -387,49 +391,52 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
           // File list
           if (!_isLoading)
             Expanded(
-              child: _files.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.folder_open,
-                            size: 64,
-                            color: Colors.grey[400],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Directory is empty',
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-                        ],
+              child: RefreshIndicator(
+                onRefresh: _loadDirectory,
+                child: _files.isEmpty
+                    ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.folder_open,
+                                  size: 64,
+                                  color: Colors.grey[400],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Directory is empty',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                          )
+                    : ListView.builder(
+                        itemCount: _files.length,
+                        itemBuilder: (context, index) {
+                          final file = _files[index];
+                          return ListTile(
+                            leading: Icon(
+                              file.isDirectory
+                                    ? Icons.folder
+                                    : Icons.insert_drive_file,
+                              color: file.isDirectory ? Colors.amber : Colors.blue,
+                            ),
+                            title: Text(file.name),
+                            subtitle: Text(
+                              file.size > 0
+                                    ? '${_formatSize(file.size)} ${file.modifiedTime != null ? "• ${_formatDate(file.modifiedTime!)}" : ""}'
+                                    : 'Directory',
+                            ),
+                            trailing: file.isDirectory
+                                ? const Icon(Icons.chevron_right)
+                                : const Icon(Icons.more_vert),
+                            onTap: () => _navigateTo(file),
+                            onLongPress: () => _showFileActions(file),
+                          );
+                        },
                       ),
-                    )
-                  : ListView.builder(
-                      itemCount: _files.length,
-                      itemBuilder: (context, index) {
-                        final file = _files[index];
-                        return ListTile(
-                          leading: Icon(
-                            file.isDirectory
-                                ? Icons.folder
-                                : Icons.insert_drive_file,
-                            color: file.isDirectory ? Colors.amber : Colors.blue,
-                          ),
-                          title: Text(file.name),
-                          subtitle: Text(
-                            file.size > 0
-                                ? '${_formatSize(file.size)} ${file.modifiedTime != null ? "• ${_formatDate(file.modifiedTime!)}" : ""}'
-                                : 'Directory',
-                          ),
-                          trailing: file.isDirectory
-                              ? const Icon(Icons.chevron_right)
-                              : const Icon(Icons.more_vert),
-                          onTap: () => _navigateTo(file),
-                          onLongPress: () => _showFileActions(file),
-                        );
-                      },
-                    ),
+              ),
             ),
         ],
       ),
