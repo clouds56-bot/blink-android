@@ -25,6 +25,41 @@ class TerminalScreen extends StatefulWidget {
 /// SSH server stdout/stderr should be written as received.
 String formatTerminalStatusLine(String text) => '$text\r\n';
 
+String decodeTerminalUtf8Chunk(List<int> bytes, List<int> decodeBuffer) {
+  decodeBuffer.addAll(bytes);
+
+  if (decodeBuffer.isEmpty) {
+    return '';
+  }
+
+  final maxTrailingBytes = decodeBuffer.length > 3 ? 3 : decodeBuffer.length - 1;
+  for (var trailingBytes = maxTrailingBytes; trailingBytes >= 0; trailingBytes--) {
+    final splitIndex = decodeBuffer.length - trailingBytes;
+    if (splitIndex <= 0) {
+      continue;
+    }
+
+    try {
+      final decoded = utf8.decode(
+        decodeBuffer.sublist(0, splitIndex),
+        allowMalformed: false,
+      );
+
+      final pendingBytes = decodeBuffer.sublist(splitIndex);
+      decodeBuffer
+        ..clear()
+        ..addAll(pendingBytes);
+      return decoded;
+    } on FormatException {
+      // Keep trying with fewer trailing bytes to handle split UTF-8 sequences.
+    }
+  }
+
+  final decoded = utf8.decode(decodeBuffer, allowMalformed: true);
+  decodeBuffer.clear();
+  return decoded;
+}
+
 // Password prompt dialog
 class _PasswordDialog extends StatefulWidget {
   final String host;
@@ -227,36 +262,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
   /// Decode bytes with proper UTF-8 handling for incomplete sequences
   String _decodeUtf8(List<int> bytes) {
-    // Add new bytes to buffer
-    _decodeBuffer.addAll(bytes);
-
-    // Try to decode and remove successfully decoded bytes
-    String result = '';
-    while (_decodeBuffer.isNotEmpty) {
-      try {
-        // Try to decode as much as possible
-        final decoded = utf8.decode(_decodeBuffer, allowMalformed: false);
-        result += decoded;
-        _decodeBuffer.clear();
-        break;
-      } on FormatException {
-        // Incomplete UTF-8 sequence - remove one byte and try again
-        // This handles multi-byte characters split across stream chunks
-        if (_decodeBuffer.length > 4) {
-          // If we have more than 4 bytes and still can't decode,
-          // something is wrong - just decode what we can
-          final decoded = utf8.decode(_decodeBuffer, allowMalformed: true);
-          result += decoded;
-          _decodeBuffer.clear();
-          break;
-        }
-        // Remove the last byte (incomplete sequence starter)
-        // and keep it for next chunk
-        _decodeBuffer.removeLast();
-      }
-    }
-
-    return result;
+    return decodeTerminalUtf8Chunk(bytes, _decodeBuffer);
   }
 
   void _resizeTerminal(int cols, int rows) {
