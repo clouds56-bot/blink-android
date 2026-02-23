@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:path_provider/path_provider.dart';
 import '../models/ssh_connection.dart';
 import '../services/sftp_service.dart';
 
@@ -107,11 +108,6 @@ class _FileViewerScreenState extends State<FileViewerScreen> {
           SnackBar(
             content: Text('Saved to ${directory.path}/${widget.file.name}'),
             backgroundColor: Colors.green,
-            action: SnackBarAction(
-              label: 'Open',
-              textColor: Colors.white,
-              onPressed: () => OpenFile.xfile(file.path),
-            ),
           ),
         );
       }
