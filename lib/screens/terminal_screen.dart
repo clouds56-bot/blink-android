@@ -32,8 +32,16 @@ String decodeTerminalUtf8Chunk(List<int> bytes, List<int> decodeBuffer) {
     return '';
   }
 
+  try {
+    final decoded = utf8.decode(decodeBuffer, allowMalformed: false);
+    decodeBuffer.clear();
+    return decoded;
+  } on FormatException {
+    // Keep trying with fewer trailing bytes for split UTF-8 sequences.
+  }
+
   final maxTrailingBytes = decodeBuffer.length > 3 ? 3 : decodeBuffer.length - 1;
-  for (var trailingBytes = maxTrailingBytes; trailingBytes >= 0; trailingBytes--) {
+  for (var trailingBytes = 1; trailingBytes <= maxTrailingBytes; trailingBytes++) {
     final splitIndex = decodeBuffer.length - trailingBytes;
     if (splitIndex <= 0) {
       continue;
