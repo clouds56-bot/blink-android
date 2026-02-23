@@ -219,11 +219,6 @@ class _TerminalScreenState extends State<TerminalScreen> {
     }
   }
 
-  String _normalizeLineEndings(String text) {
-    // Keep SSH output line endings as-is to avoid altering terminal output.
-    return text;
-  }
-
   /// Decode bytes with proper UTF-8 handling for incomplete sequences
   String _decodeUtf8(List<int> bytes) {
     // Add new bytes to buffer
@@ -384,9 +379,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
       // Listen for output from stdout
       _stdoutSubscription = _session!.stdout.listen(
         (data) {
-          // Decode UTF-8 properly to handle multi-byte characters and incomplete sequences
-          // Normalize line endings to prevent double newlines
-          final output = _normalizeLineEndings(_decodeUtf8(data));
+          // Decode UTF-8 properly to handle multi-byte characters and incomplete sequences.
+          // Keep line endings from server output unchanged.
+          final output = _decodeUtf8(data);
           _terminal.write(output);
         },
         onError: (error) {
@@ -400,7 +395,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
       // Listen for stderr
       _stderrSubscription = _session!.stderr.listen(
         (data) {
-          final error = _normalizeLineEndings(_decodeUtf8(data));
+          final error = _decodeUtf8(data);
           _terminal.write('\x1b[31m$error\x1b[0m'); // Red color for stderr
         },
       );
