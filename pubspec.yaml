@@ -59,6 +59,9 @@ dependencies:
   # File picker for importing keys
   file_picker: ^8.1.6
 
+  # Terminal emulator with ANSI support
+  xterm: ^4.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
