@@ -9,6 +9,7 @@ import 'package:xterm/ui.dart' as xterm_ui;
 import 'package:provider/provider.dart';
 import '../models/ssh_connection.dart';
 import '../services/connection_service.dart';
+import 'file_explorer_screen.dart';
 
 class TerminalScreen extends StatefulWidget {
   final SSHConnection connection;
@@ -448,12 +449,19 @@ class _TerminalScreenState extends State<TerminalScreen> {
                 ),
               IconButton(
                 icon: const Icon(Icons.folder),
-                onPressed: () {
-                  // TODO: Open file explorer (SFTP)
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('SFTP file explorer coming soon')),
-                  );
-                },
+                onPressed: _isConnected
+                    ? () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => FileExplorerScreen(
+                              connection: widget.connection,
+                              sshClient: _client!,
+                            ),
+                          ),
+                        );
+                      }
+                    : null,
+                tooltip: 'Open SFTP File Explorer',
               ),
             ],
           ),
