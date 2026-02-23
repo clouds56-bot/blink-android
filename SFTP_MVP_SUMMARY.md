@@ -130,11 +130,20 @@ await sftpClient.stat('/path/to/file');
 
 ## Future Enhancements
 
-### Immediate Improvements
-- [ ] Integrate with device file system for actual file save/load
-- [ ] Add upload button to select local files
-- [ ] Add refresh pull-to-refresh on file list
-- [ ] Show file count in directory
+### Completed Since MVP
+- [x] Add upload button to select local files (using file_picker)
+- [x] Show file count in directory (in app bar title)
+- [x] Add refresh pull-to-refresh on file list
+- [x] Create folder dialog with validation
+- [x] Haptic feedback for interactions
+
+### Remaining Improvements
+- [ ] Integrate with device file system for actual file save/download
+- [ ] Progress indicators for transfers
+- [ ] Multiple selection for batch operations
+- [ ] File preview for images and text files
+- [ ] Search/filter functionality
+- [ ] Sort options (name, size, date)
 
 ### Medium-term Features
 - [ ] Multiple selection for batch operations
@@ -196,9 +205,30 @@ Added SFTP functionality to browse remote file systems via SSH
 
 ## Status
 
-✅ **MVP Complete**
+✅ **MVP Complete + Enhancements**
 - Core SFTP operations working
-- File explorer UI functional
+- File explorer UI functional with enhancements
+- Upload files from device
+- Create folders with dialog
+- Pull-to-refresh support
+- Haptic feedback
 - Tests passing
 - Code clean and analyzed
 - Ready for user testing
+
+## Recent Commits (Post-MVP)
+
+1. `feat: Add file upload picker and file count display`
+   - Upload button in app bar
+   - file_picker integration
+   - File count in title
+
+2. `feat: Add pull-to-refresh and haptic feedback`
+   - RefreshIndicator on ListView
+   - HapticFeedback.lightImpact() on navigation
+   - Clean imports
+
+3. `feat: Add create folder dialog`
+   - Create folder button in app bar
+   - Text input dialog with validation
+   - Auto-refresh after creation
