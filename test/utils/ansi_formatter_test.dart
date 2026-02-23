@@ -75,6 +75,18 @@ void main() {
         const expected = 'Line 1\nLine 2';
         expect(AnsiFormatter.stripAnsiCodes(input), expected);
       });
+
+      test('applies carriage return as cursor reset on same line', () {
+        const input = 'abcdef\r12';
+        const expected = '12cdef';
+        expect(AnsiFormatter.stripAnsiCodes(input), expected);
+      });
+
+      test('handles zsh partial line cleanup using ESC[K', () {
+        const input = 'user@host:~ %\r\x1b[Kuser@host:~ \$ ';
+        const expected = 'user@host:~ \$ ';
+        expect(AnsiFormatter.stripAnsiCodes(input), expected);
+      });
     });
   });
 }
