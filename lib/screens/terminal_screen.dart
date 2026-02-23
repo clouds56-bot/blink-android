@@ -19,11 +19,6 @@ class TerminalScreen extends StatefulWidget {
   State<TerminalScreen> createState() => _TerminalScreenState();
 }
 
-String normalizeTerminalLineEndings(String text) {
-  final normalized = text.replaceAll('\r\n', '\n');
-  return normalized.replaceAll('\n', '\r\n');
-}
-
 // Password prompt dialog
 class _PasswordDialog extends StatefulWidget {
   final String host;
@@ -224,6 +219,11 @@ class _TerminalScreenState extends State<TerminalScreen> {
     }
   }
 
+  String _normalizeLineEndings(String text) {
+    // Keep SSH output line endings as-is to avoid altering terminal output.
+    return text;
+  }
+
   /// Decode bytes with proper UTF-8 handling for incomplete sequences
   String _decodeUtf8(List<int> bytes) {
     // Add new bytes to buffer
@@ -386,7 +386,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
         (data) {
           // Decode UTF-8 properly to handle multi-byte characters and incomplete sequences
           // Normalize line endings to prevent double newlines
-          final output = normalizeTerminalLineEndings(_decodeUtf8(data));
+          final output = _normalizeLineEndings(_decodeUtf8(data));
           _terminal.write(output);
         },
         onError: (error) {
@@ -400,7 +400,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
       // Listen for stderr
       _stderrSubscription = _session!.stderr.listen(
         (data) {
-          final error = normalizeTerminalLineEndings(_decodeUtf8(data));
+          final error = _normalizeLineEndings(_decodeUtf8(data));
           _terminal.write('\x1b[31m$error\x1b[0m'); // Red color for stderr
         },
       );
