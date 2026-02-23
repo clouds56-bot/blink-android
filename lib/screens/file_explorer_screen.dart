@@ -247,6 +247,80 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
     }
   }
 
+  Future<void> _showCreateFolderDialog() async {
+    final controller = TextEditingController();
+    final folderName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Create New Folder'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Folder name',
+            hintText: 'Enter folder name',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                Navigator.pop(context, name);
+              }
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+
+    if (folderName == null) return;
+
+    HapticFeedback.lightImpact();
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final remotePath = _currentPath.endsWith('/')
+          ? '$_currentPath$folderName'
+          : '$_currentPath/$folderName';
+
+      await _sftpService.createDirectory(remotePath);
+
+      // Refresh directory listing
+      await _loadDirectory();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Folder created: $folderName'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to create folder: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<void> _uploadFile() async {
     // Pick a file from the device
     final result = await FilePicker.platform.pickFiles(
@@ -321,6 +395,11 @@ class _FileExplorerScreenState extends State<FileExplorerScreen> {
       appBar: AppBar(
         title: Text('SFTP: ${widget.connection.name} (${_files.length} items)'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.create_new_folder),
+            onPressed: _isLoading ? null : _showCreateFolderDialog,
+            tooltip: 'Create folder',
+          ),
           IconButton(
             icon: const Icon(Icons.home),
             onPressed: _goToRoot,
