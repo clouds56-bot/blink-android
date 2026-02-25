@@ -64,6 +64,7 @@ class _AddConnectionScreenState extends State<AddConnectionScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             TextFormField(
+              key: const Key('connection_name_field'),
               controller: _nameController,
               decoration: const InputDecoration(
                 labelText: 'Name',
@@ -79,6 +80,7 @@ class _AddConnectionScreenState extends State<AddConnectionScreen> {
             ),
             const SizedBox(height: 16),
             TextFormField(
+              key: const Key('host_field'),
               controller: _hostController,
               decoration: const InputDecoration(
                 labelText: 'Host',
@@ -94,6 +96,7 @@ class _AddConnectionScreenState extends State<AddConnectionScreen> {
             ),
             const SizedBox(height: 16),
             TextFormField(
+              key: const Key('port_field'),
               controller: _portController,
               decoration: const InputDecoration(
                 labelText: 'Port',
@@ -114,6 +117,7 @@ class _AddConnectionScreenState extends State<AddConnectionScreen> {
             ),
             const SizedBox(height: 16),
             TextFormField(
+              key: const Key('username_field'),
               controller: _usernameController,
               decoration: const InputDecoration(
                 labelText: 'Username',
@@ -129,6 +133,7 @@ class _AddConnectionScreenState extends State<AddConnectionScreen> {
             ),
             const SizedBox(height: 16),
             TextFormField(
+              key: const Key('password_field'),
               controller: _passwordController,
               decoration: const InputDecoration(
                 labelText: 'Password (optional)',

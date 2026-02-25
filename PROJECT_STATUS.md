@@ -3,8 +3,8 @@
 ## Current Status: Production Ready ✅
 
 **Version:** 1.0.0+1
-**Last Updated:** 2026-02-23
-**Tests:** All passing (18 unit tests + widget tests)
+**Last Updated:** 2026-02-25
+**Tests:** All passing (18 unit tests + widget tests + integration tests)
 
 ---
 
@@ -28,6 +28,14 @@
 ---
 
 ## Recent History
+
+### 2026-02-25 - Integration Tests Added
+- ✅ App flow tests (no Docker required)
+- ✅ SSH connection tests (with Docker support)
+- ✅ Screenshot capture at each test step
+- ✅ Docker SSH server setup
+- ✅ Test automation scripts
+- ✅ Documentation updated
 
 ### 2026-02-23 - SFTP & File Viewer Complete
 - ✅ SFTP file explorer MVP implemented
@@ -74,6 +82,16 @@
 
 **Result:** All tests passing ✅
 
+### Integration Tests
+- `integration_test/app_flow_test.dart` - App navigation flow (no Docker required)
+  - Tests home screen, add connection, form filling, navigation
+  - 5 screenshots captured
+- `integration_test/ssh_connection_test.dart` - Full SSH connection flow (with Docker)
+  - Tests adding SSH connection, terminal commands, SFTP explorer
+  - 11 screenshots captured
+
+**Note:** Integration tests require Android emulator or device. SSH connection tests require Docker SSH server running.
+
 ---
 
 ## Architecture Quality
@@ -116,6 +134,8 @@
 - ✅ `CHANGES.md` - Technical change log
 - ✅ `QUICKSTART.md` - Quick start guide
 - ✅ `AGENTS.md` - Context for AI agents
+- ✅ `INTEGRATION_TESTS.md` - Integration test documentation
+- ✅ `INTEGRATION_TEST_IMPLEMENTATION.md` - Implementation summary
 - ✅ `pubspec.yaml` - Dependencies and version
 
 ---

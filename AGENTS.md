@@ -17,6 +17,7 @@ Project conventions and workflows for AI assistants working on this Flutter SSH 
 - ✅ Secure credential storage
 - ✅ Real-time terminal I/O with ANSI support
 - ✅ 18 unit tests passing
+- ✅ Integration tests (app flow + SSH connection with Docker)
 
 ### Documentation Files
 - `README.md` - User guide and project overview
@@ -25,7 +26,9 @@ Project conventions and workflows for AI assistants working on this Flutter SSH 
 - `IMPLEMENTATION_COMPLETE.md` - Feature completion summary
 - `CHANGES.md` - Technical change log
 - `QUICKSTART.md` - Quick start guide
-- `AGENTS.md` - This file
+- `AGENTS.md` - This file (development guidelines)
+- `INTEGRATION_TESTS.md` - Integration test documentation
+- `INTEGRATION_TEST_IMPLEMENTATION.md` - Implementation summary
 
 ---
 
@@ -168,11 +171,20 @@ test/
 - Test state changes
 
 ### Integration Tests
-- For critical user flows (not yet implemented)
+- For critical user flows and end-to-end scenarios
+- Two approaches available:
+  1. **App Flow Tests** - No Docker required, test UI navigation
+  2. **SSH Connection Tests** - Full end-to-end with Docker SSH server
+- Run with: `flutter test integration_test/`
+- See `INTEGRATION_TESTS.md` for full documentation
+- Screenshots captured automatically at each step
+- Use `./scripts/run-app-flow-tests.sh` for quick app flow tests
+- Use `./scripts/run-integration-tests.sh` for full SSH tests (requires Docker)
 
 ### Test Coverage Goal
 - Aim for 80%+ coverage on services
 - Critical paths must have 100% coverage
+- Integration tests cover user journey through the app
 
 ---
 
@@ -283,12 +295,26 @@ void dispose() {
 
 ```bash
 # Flutter
-flutter test                    # Run all tests
+flutter test                    # Run all tests (unit + widget)
 flutter test --coverage         # With coverage
 flutter analyze                 # Static analysis
 dart format .                   # Format code
 flutter pub get                 # Get dependencies
 flutter pub outdated            # Check for updates
+
+# Integration Tests
+flutter test integration_test/  # Run all integration tests
+flutter test integration_test/app_flow_test.dart  # App flow only (no Docker)
+flutter test integration_test/ssh_connection_test.dart  # Full SSH tests (needs Docker)
+./scripts/run-app-flow-tests.sh  # Run app flow tests with prompts
+./scripts/run-integration-tests.sh  # Full automation (starts Docker, runs tests)
+
+# Docker SSH Test Server
+docker compose -f docker-compose.test.yml up -d  # Start SSH server
+docker compose -f docker-compose.test.yml down  # Stop SSH server
+./docker/test-ssh-server.sh start  # Start via script
+./docker/test-ssh-server.sh stop   # Stop via script
+./docker/test-ssh-server.sh status # Check status
 
 # Git
 git checkout -b feature/name     # Create feature branch
@@ -360,5 +386,6 @@ flutter build appbundle --release  # Build AAB
 
 ---
 
-**Last Updated:** 2026-02-23
+**Last Updated:** 2026-02-25
 **Project Status:** Production Ready ✅
+**Integration Tests:** Added ✅

@@ -45,3 +45,10 @@ app.*.map.json
 
 # Coverage reports
 coverage/
+
+# Integration test data (contains SSH keys)
+test_data/
+test_keys/
+
+# Integration test screenshots
+/tmp/blink_android_*/

@@ -76,6 +76,10 @@ dev_dependencies:
   # Mocking for tests
   mocktail: ^1.0.4
 
+  # Integration tests
+  integration_test:
+    sdk: flutter
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

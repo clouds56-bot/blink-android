@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  ssh-server:
+    image: panubo/sshd:latest
+    container_name: blink-android-ssh-test
+    ports:
+      - "2222:22"
+    environment:
+      SSH_USERS: "testuser:testpass:1000:1000"
+      SSH_ENABLE_ROOT: "true"
+      SSH_ROOT_PASSWORD: "rootpass"
+    volumes:
+      - ./test_data:/home/testuser/files
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "22"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - blink-test-net
+
+  # Optional: SFTP-specific container
+  sftp-server:
+    image: atmoz/sftp:latest
+    container_name: blink-android-sftp-test
+    ports:
+      - "2223:22"
+    command: "testuser:testpass:1001"
+    volumes:
+      - ./test_data:/home/testuser/upload
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "22"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - blink-test-net
+
+networks:
+  blink-test-net:
+    driver: bridge
+
+volumes:
+  test_data:
