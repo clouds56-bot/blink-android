@@ -86,8 +86,8 @@ main() {
     
     # Run integration test with flutter test
     # Screenshots are stored in build/test_outputs/
-    echo "Running E2E tests (10 min timeout)..."
-    timeout 600 flutter test \
+    echo "Running E2E tests (handled by workflow timeout)..."
+    flutter test \
         integration_test/app_flow_test.dart \
         -d "$DEVICE" || {
             echo "⚠️ Tests exited with non-zero code: $?"
