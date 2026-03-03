@@ -3,14 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:blink_android/main.dart';
-
-/// Pumps frames with a bounded timeout to avoid hanging on continuous
-/// animations (e.g. CircularProgressIndicator) in CI emulators.
-Future<void> settle(WidgetTester tester, {int frames = 20}) async {
-  for (int i = 0; i < frames; i++) {
-    await tester.pump(const Duration(milliseconds: 100));
-  }
-}
+import 'test_utils.dart';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
