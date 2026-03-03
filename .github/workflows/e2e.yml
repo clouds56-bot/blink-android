@@ -32,6 +32,9 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Build APK for E2E Tests
+        run: flutter build apk --debug
+
       - name: Run E2E Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
