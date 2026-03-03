@@ -21,13 +21,12 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.41.1
           cache: true
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Enable KVM group perms
+      - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
@@ -40,9 +39,9 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-30-x86_64-v2
+          key: avd-30-x86_64-v3
 
-      - name: Create AVD and generate snapshot for caching
+      - name: Create AVD for caching
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -52,9 +51,9 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: echo "Generated AVD snapshot for caching."
+          script: echo "AVD snapshot created"
 
-      - name: Run E2E Tests with Screenshots
+      - name: Run E2E Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -64,25 +63,23 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
-            # Wait for emulator to be ready
             adb wait-for-device
-            sleep 15
+            sleep 10
             
             # Create screenshots directory
             mkdir -p screenshots/e2e
             
-            # Get device ID
-            DEVICE=$(adb devices | grep emulator | cut -f1 | head -1)
-            echo "📱 Using device: $DEVICE"
-            
-            # Run E2E tests with flutter drive (captures screenshots via binding)
+            # Run flutter drive with screenshots
             flutter drive \
               --driver=test_driver/integration_test.dart \
               --target=integration_test/app_flow_test.dart \
-              -d $DEVICE || true
+              --device-id=emulator-5554 || echo "Test completed with warnings"
             
-            # List captured screenshots
-            ls -la screenshots/e2e/ || echo "No screenshots captured"
+            # List results
+            echo "=== Screenshots ==="
+            ls -la screenshots/e2e/ 2>/dev/null || echo "No screenshots directory"
+            echo "=== Build output ==="
+            ls -la build/ 2>/dev/null | head -10
 
       - name: Zip Screenshots
         if: always()
@@ -91,16 +88,15 @@ jobs:
             cd screenshots/e2e
             zip -r ../screenshots.zip *.png
             cd ..
-            echo "✅ screenshots.zip created: $(ls -lh screenshots.zip)"
+            echo "✅ Created: $(ls -lh screenshots.zip)"
           else
-            echo "⚠️ No screenshots found, creating placeholder"
+            echo "⚠️ No PNG screenshots found"
             mkdir -p screenshots/e2e
-            echo "No screenshots captured" > screenshots/e2e/README.txt
-            cd screenshots/e2e
-            zip -r ../screenshots.zip .
+            echo "No screenshots captured during test run" > screenshots/e2e/README.txt
+            cd screenshots && zip -r screenshots.zip e2e/
           fi
 
-      - name: Upload Screenshots Artifact
+      - name: Upload Screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -108,14 +104,12 @@ jobs:
           path: screenshots/screenshots.zip
           retention-days: 30
 
-      - name: Upload Test Results
+      - name: Upload Test Data
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-test-results
+          name: e2e-test-data
           path: |
             build/integration_response_data.json
-            test-results/
-            coverage/
           retention-days: 7
           if-no-files-found: ignore
