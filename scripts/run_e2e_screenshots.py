@@ -2,6 +2,14 @@
 """
 E2E Test Runner with Screenshot Capture
 Runs Flutter integration tests and captures screenshots via ADB
+
+IMPORTANT: This script requires a display surface for rendering.
+- Local: Start emulator WITHOUT -no-window flag, or use Xvfb
+- CI: Use reactivecircus/android-emulator-runner which provides virtual framebuffer
+
+For local testing with display:
+  flutter emulators --launch test_emulator  # WITHOUT -no-window
+  python3 scripts/run_e2e_screenshots.py
 """
 
 import subprocess
