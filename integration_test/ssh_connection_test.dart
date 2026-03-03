@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:blink_android/main.dart';
+import 'test_utils.dart';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -26,8 +27,7 @@ void main() {
 
       // Launch the app
       await tester.pumpWidget(const BlinkApp());
-      await tester.pumpAndSettle();
-      await Future.delayed(const Duration(milliseconds: 500));
+      await settle(tester);
 
       // Screenshot 1: Home screen
       await binding.takeScreenshot('01_home_screen');
@@ -41,8 +41,7 @@ void main() {
       final addButton = find.byIcon(Icons.add);
       expect(addButton, findsOneWidget);
       await tester.tap(addButton);
-      await tester.pumpAndSettle();
-      await Future.delayed(const Duration(milliseconds: 500));
+      await settle(tester);
 
       // Screenshot 2: Add connection screen
       await binding.takeScreenshot('02_add_connection_screen');
@@ -70,8 +69,7 @@ void main() {
         testPassword,
       );
 
-      await tester.pumpAndSettle();
-      await Future.delayed(const Duration(milliseconds: 500));
+      await settle(tester);
 
       // Screenshot 3: Form filled
       await binding.takeScreenshot('03_form_filled');
@@ -95,8 +93,7 @@ void main() {
         }
       }
 
-      await tester.pumpAndSettle();
-      await Future.delayed(const Duration(milliseconds: 500));
+      await settle(tester);
 
       // Screenshot 4: Connection added
       await binding.takeScreenshot('04_connection_added');
@@ -109,16 +106,14 @@ void main() {
 
         // Tap the connection to connect
         await tester.tap(connectionTile);
-        await tester.pumpAndSettle();
-        await Future.delayed(const Duration(seconds: 2));
+        await settle(tester, frames: 30);
 
         // Screenshot 5: Terminal screen
         await binding.takeScreenshot('05_terminal_connecting');
         print('📸 Captured: 05_terminal_connecting');
 
         // Wait for connection attempt
-        await Future.delayed(const Duration(seconds: 3));
-        await tester.pumpAndSettle();
+        await settle(tester, frames: 30);
 
         // Screenshot 6: Terminal connected
         await binding.takeScreenshot('06_terminal_connected');
@@ -126,12 +121,12 @@ void main() {
 
         // Go back to home
         await tester.pageBack();
-        await tester.pumpAndSettle();
+        await settle(tester);
       } else {
         print('⚠️ Connection not saved (form may have different save mechanism)');
       }
 
-      await Future.delayed(const Duration(milliseconds: 500));
+      await settle(tester);
 
       // Screenshot: Final state
       await binding.takeScreenshot('07_final_state');

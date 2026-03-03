@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:blink_android/main.dart';
+import 'test_utils.dart';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -19,8 +20,7 @@ void main() {
     testWidgets('App navigation flow', (WidgetTester tester) async {
       // Launch the app
       await tester.pumpWidget(const BlinkApp());
-      await tester.pumpAndSettle();
-      await Future.delayed(const Duration(milliseconds: 500));
+      await settle(tester);
 
       // Screenshot 1: Home screen
       await binding.takeScreenshot('01_home_screen');
@@ -33,8 +33,7 @@ void main() {
       final addButton = find.byIcon(Icons.add);
       expect(addButton, findsOneWidget);
       await tester.tap(addButton);
-      await tester.pumpAndSettle();
-      await Future.delayed(const Duration(milliseconds: 500));
+      await settle(tester);
 
       // Screenshot 2: Add connection screen
       await binding.takeScreenshot('02_add_connection_screen');
@@ -65,8 +64,7 @@ void main() {
         'testuser',
       );
 
-      await tester.pumpAndSettle();
-      await Future.delayed(const Duration(milliseconds: 500));
+      await settle(tester);
 
       // Screenshot 3: Form filled
       await binding.takeScreenshot('03_form_filled');
@@ -74,8 +72,7 @@ void main() {
 
       // Go back to home
       await tester.pageBack();
-      await tester.pumpAndSettle();
-      await Future.delayed(const Duration(milliseconds: 500));
+      await settle(tester);
 
       // Screenshot 4: Back to home
       await binding.takeScreenshot('04_back_to_home');
@@ -87,8 +84,7 @@ void main() {
     testWidgets('UI Components visibility', (WidgetTester tester) async {
       // Launch the app
       await tester.pumpWidget(const BlinkApp());
-      await tester.pumpAndSettle();
-      await Future.delayed(const Duration(milliseconds: 500));
+      await settle(tester);
 
       // Screenshot 5: Empty state
       await binding.takeScreenshot('05_empty_state');

@@ -62,8 +62,8 @@ wait_for_emulator() {
     done
     
     # Additional settle time
-    echo "  Waiting for system to settle (10s)..."
-    sleep 10
+    echo "  Waiting for system to settle (5s)..."
+    sleep 5
     
     echo "✅ Emulator is fully ready"
 }
@@ -84,11 +84,11 @@ main() {
     fi
     echo "📱 Using device: $DEVICE"
     
-    # Run integration test with flutter test
-    # Screenshots are stored in build/test_outputs/
-    echo "Running E2E tests (10 min timeout)..."
-    timeout 600 flutter test \
-        integration_test/app_flow_test.dart \
+    # Run integration test via flutter drive for proper screenshot capture
+    echo "Running E2E tests via flutter drive (10 min timeout)..."
+    timeout 600 flutter drive \
+        --driver=test_driver/integration_test.dart \
+        --target=integration_test/app_flow_test.dart \
         -d "$DEVICE" || {
             echo "⚠️ Tests exited with non-zero code: $?"
         }
@@ -96,27 +96,15 @@ main() {
     echo ""
     echo "=== Test Results ==="
     
-    # Copy screenshots from test outputs to our directory
-    if [ -d "build/test_outputs" ]; then
-        echo "Found test outputs:"
-        ls -la build/test_outputs/ 2>/dev/null || true
-        
-        # Copy any screenshots
-        if ls build/test_outputs/*.png 2>/dev/null; then
-            cp build/test_outputs/*.png screenshots/e2e/ 2>/dev/null || true
-            echo "📸 Screenshots copied to screenshots/e2e/"
-        fi
-    fi
+    # List final screenshots
+    echo ""
+    echo "Screenshots in screenshots/e2e/:"
+    ls -la screenshots/e2e/*.png 2>/dev/null || echo "  No PNG files found"
     
     # Check for integration test response data
     if [ -f "build/integration_response_data.json" ]; then
         echo "📄 Found response data: build/integration_response_data.json"
     fi
-    
-    # List final screenshots
-    echo ""
-    echo "Screenshots in screenshots/e2e/:"
-    ls -la screenshots/e2e/*.png 2>/dev/null || echo "  No PNG files found"
 }
 
 main "$@"
