@@ -39,7 +39,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-30-x86_64-v3
+          key: avd-30-x86_64-v4
 
       - name: Create AVD for caching
         if: steps.avd-cache.outputs.cache-hit != 'true'
@@ -62,37 +62,18 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: |
-            adb wait-for-device
-            sleep 10
-            
-            # Create screenshots directory
-            mkdir -p screenshots/e2e
-            
-            # Run flutter drive with screenshots
-            flutter drive \
-              --driver=test_driver/integration_test.dart \
-              --target=integration_test/app_flow_test.dart \
-              --device-id=emulator-5554 || echo "Test completed with warnings"
-            
-            # List results
-            echo "=== Screenshots ==="
-            ls -la screenshots/e2e/ 2>/dev/null || echo "No screenshots directory"
-            echo "=== Build output ==="
-            ls -la build/ 2>/dev/null | head -10
+          script: adb wait-for-device && sleep 10 && mkdir -p screenshots/e2e && flutter drive --driver=test_driver/integration_test.dart --target=integration_test/app_flow_test.dart --device-id=emulator-5554
 
       - name: Zip Screenshots
         if: always()
         run: |
           if [ -d "screenshots/e2e" ] && [ "$(ls -A screenshots/e2e/*.png 2>/dev/null)" ]; then
-            cd screenshots/e2e
-            zip -r ../screenshots.zip *.png
-            cd ..
+            cd screenshots/e2e && zip -r ../screenshots.zip *.png && cd ..
             echo "✅ Created: $(ls -lh screenshots.zip)"
           else
             echo "⚠️ No PNG screenshots found"
             mkdir -p screenshots/e2e
-            echo "No screenshots captured during test run" > screenshots/e2e/README.txt
+            echo "No screenshots captured" > screenshots/e2e/README.txt
             cd screenshots && zip -r screenshots.zip e2e/
           fi
 
@@ -109,7 +90,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: e2e-test-data
-          path: |
-            build/integration_response_data.json
+          path: build/integration_response_data.json
           retention-days: 7
           if-no-files-found: ignore
