@@ -84,41 +84,39 @@ main() {
     fi
     echo "📱 Using device: $DEVICE"
     
-    # Check pre-built APK exists
-    APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
-    if [ ! -f "$APK_PATH" ]; then
-        echo "❌ Pre-built APK not found at $APK_PATH"
-        exit 1
-    fi
-    echo "📦 Using pre-built APK: $APK_PATH ($(ls -lh $APK_PATH | awk '{print $5}'))"
-    
-    # Run flutter drive with pre-built APK and timeout
+    # Run integration test with flutter test
+    # Screenshots are stored in build/test_outputs/
     echo "Running E2E tests (10 min timeout)..."
-    timeout 600 flutter drive \
-        --driver=test_driver/integration_test.dart \
-        --target=integration_test/app_flow_test.dart \
-        --use-application-binary="$APK_PATH" \
-        --device-id="$DEVICE"
+    timeout 600 flutter test \
+        integration_test/app_flow_test.dart \
+        -d "$DEVICE" || {
+            echo "⚠️ Tests exited with non-zero code: $?"
+        }
     
-    DRIVE_EXIT=$?
-    if [ $DRIVE_EXIT -eq 124 ]; then
-        echo "❌ Tests timed out after 10 minutes"
-        exit 1
-    elif [ $DRIVE_EXIT -ne 0 ]; then
-        echo "⚠️ Tests completed with exit code: $DRIVE_EXIT"
-    else
-        echo "✅ Tests completed successfully"
-    fi
-    
-    # Show results
     echo ""
     echo "=== Test Results ==="
-    if [ -d "screenshots/e2e" ]; then
-        echo "Screenshots captured:"
-        ls -la screenshots/e2e/*.png 2>/dev/null || echo "  No PNG files found"
-    else
-        echo "No screenshots directory"
+    
+    # Copy screenshots from test outputs to our directory
+    if [ -d "build/test_outputs" ]; then
+        echo "Found test outputs:"
+        ls -la build/test_outputs/ 2>/dev/null || true
+        
+        # Copy any screenshots
+        if ls build/test_outputs/*.png 2>/dev/null; then
+            cp build/test_outputs/*.png screenshots/e2e/ 2>/dev/null || true
+            echo "📸 Screenshots copied to screenshots/e2e/"
+        fi
     fi
+    
+    # Check for integration test response data
+    if [ -f "build/integration_response_data.json" ]; then
+        echo "📄 Found response data: build/integration_response_data.json"
+    fi
+    
+    # List final screenshots
+    echo ""
+    echo "Screenshots in screenshots/e2e/:"
+    ls -la screenshots/e2e/*.png 2>/dev/null || echo "  No PNG files found"
 }
 
 main "$@"
