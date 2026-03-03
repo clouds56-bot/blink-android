@@ -17,8 +17,10 @@ void main() {
     testWidgets('App navigation flow', (WidgetTester tester) async {
       // Launch the app
       await tester.pumpWidget(const BlinkApp());
-      await tester.pumpAndSettle();
-      await Future.delayed(const Duration(milliseconds: 800));
+      
+      // Wait for app to fully render (critical for headless emulator)
+      await tester.pumpAndSettle(const Duration(seconds: 3));
+      await Future.delayed(const Duration(seconds: 2)); // Extra time for GPU rendering
 
       print('📸 STEP: home_screen');
       // Screenshot 1: Home screen
@@ -30,8 +32,8 @@ void main() {
       final addButton = find.byIcon(Icons.add);
       expect(addButton, findsOneWidget);
       await tester.tap(addButton);
-      await tester.pumpAndSettle();
-      await Future.delayed(const Duration(milliseconds: 800));
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 1)); // Extra time for GPU rendering
 
       print('📸 STEP: add_connection_screen');
       // Screenshot 2: Add connection screen
@@ -61,16 +63,16 @@ void main() {
         'testuser',
       );
 
-      await tester.pumpAndSettle();
-      await Future.delayed(const Duration(milliseconds: 800));
+      await tester.pumpAndSettle(const Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 1)); // Extra time for GPU rendering
 
       print('📸 STEP: form_filled');
       // Screenshot 3: Form filled
 
       // Go back to home
       await tester.pageBack();
-      await tester.pumpAndSettle();
-      await Future.delayed(const Duration(milliseconds: 800));
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 1)); // Extra time for GPU rendering
 
       print('📸 STEP: back_to_home');
       // Screenshot 4: Back to home
@@ -81,8 +83,8 @@ void main() {
     testWidgets('UI Components visibility', (WidgetTester tester) async {
       // Launch the app
       await tester.pumpWidget(const BlinkApp());
-      await tester.pumpAndSettle();
-      await Future.delayed(const Duration(milliseconds: 800));
+      await tester.pumpAndSettle(const Duration(seconds: 3));
+      await Future.delayed(const Duration(seconds: 2)); // Extra time for GPU rendering
 
       print('📸 STEP: empty_state');
       // Screenshot 5: Empty state
