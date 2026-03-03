@@ -13,7 +13,27 @@ from pathlib import Path
 
 PROJECT_DIR = Path(__file__).parent.parent
 SCREENSHOTS_DIR = PROJECT_DIR / "screenshots" / "e2e"
-DEVICE = "emulator-5554"
+def get_android_device():
+    """Get the first available Android device/emulator"""
+    # If device is specified in env, use it
+    if os.environ.get("ANDROID_DEVICE"):
+        return os.environ["ANDROID_DEVICE"]
+    
+    # Try to find device via adb
+    result = subprocess.run(
+        ["adb", "devices"],
+        capture_output=True,
+        text=True
+    )
+    
+    for line in result.stdout.split("\n"):
+        if "\tdevice" in line:
+            return line.split("\t")[0]
+    
+    # Default
+    return "emulator-5554"
+
+DEVICE = get_android_device()
 
 def setup_screenshots():
     """Create screenshots directory and clean old files"""
@@ -82,19 +102,23 @@ def run_test_with_screenshots():
     return process.returncode
 
 def main():
-    # Check device is connected
+    # Check device is connected (try multiple device names)
     result = subprocess.run(
-        ["flutter", "devices"],
+        ["flutter", "devices", "--device-timeout", "30"],
         cwd=PROJECT_DIR,
         capture_output=True,
-        text=True
+        text=True,
+        env={**os.environ, "PATH": os.environ.get("PATH", "")}
     )
     
-    if DEVICE not in result.stdout:
-        print(f"❌ Device {DEVICE} not found!")
+    # Check for any emulator
+    if "emulator" not in result.stdout and "android" not in result.stdout.lower():
+        print(f"❌ No Android device found!")
         print("Available devices:")
         print(result.stdout)
         return 1
+    
+    print(f"📱 Device check passed")
     
     # Run tests
     return_code = run_test_with_screenshots()
