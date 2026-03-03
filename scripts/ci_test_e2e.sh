@@ -84,12 +84,14 @@ main() {
     fi
     echo "📱 Using device: $DEVICE"
     
-    # Run integration test with flutter test
-    # Screenshots are stored in build/test_outputs/
-    echo "Running E2E tests (10 min timeout)..."
+    # Run integration test with flutter drive so screenshot data is returned
+    # to test_driver/integration_test.dart responseDataCallback.
+    echo "Running E2E tests (15 min timeout)..."
     set +e
-    timeout 600 flutter test \
-        integration_test/app_flow_test.dart \
+    timeout 900 flutter drive \
+        --driver=test_driver/integration_test.dart \
+        --target=integration_test/app_flow_test.dart \
+        --use-application-binary=build/app/outputs/flutter-apk/app-debug.apk \
         -d "$DEVICE"
     TEST_EXIT_CODE=$?
     set -e
