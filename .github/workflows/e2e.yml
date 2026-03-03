@@ -1,0 +1,77 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  e2e-tests:
+    name: E2E Tests with Screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Build APK for E2E Tests
+        run: flutter build apk --debug
+
+      - name: Run E2E Tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: chmod +x scripts/ci_test_e2e.sh && ./scripts/ci_test_e2e.sh
+
+      - name: Zip Screenshots
+        if: always()
+        run: |
+          if [ -d "screenshots/e2e" ] && [ "$(ls -A screenshots/e2e/*.png 2>/dev/null)" ]; then
+            cd screenshots/e2e && zip -r ../screenshots.zip *.png && cd ..
+            echo "✅ Created: $(ls -lh screenshots.zip)"
+          else
+            echo "⚠️ No PNG screenshots found"
+            mkdir -p screenshots/e2e
+            echo "No screenshots captured" > screenshots/e2e/README.txt
+            cd screenshots && zip -r screenshots.zip e2e/
+          fi
+
+      - name: Upload Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: screenshots/screenshots.zip
+          retention-days: 30
+
+      - name: Upload Test Data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-data
+          path: build/integration_response_data.json
+          retention-days: 7
+          if-no-files-found: ignore

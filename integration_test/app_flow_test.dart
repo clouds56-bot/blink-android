@@ -5,26 +5,26 @@ import 'package:integration_test/integration_test.dart';
 import 'package:blink_android/main.dart';
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-
-  group('App Flow Tests (No Docker Required)', () {
-    late String screenshotsDir;
-
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  
+  group('App Flow Tests', () {
     setUpAll(() async {
-      // Create screenshots directory
-      screenshotsDir = '/tmp/blink_android_app_flow';
-      await Directory(screenshotsDir).create(recursive: true);
-      print('📸 Screenshots will be saved to: $screenshotsDir');
+      // Required for Android screenshots - converts Flutter surface to image
+      if (Platform.isAndroid) {
+        await binding.convertFlutterSurfaceToImage();
+      }
+      print('📸 Ready for screenshots');
     });
 
     testWidgets('App navigation flow', (WidgetTester tester) async {
       // Launch the app
       await tester.pumpWidget(const BlinkApp());
       await tester.pumpAndSettle();
+      await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 1: Home screen
-      await takeScreenshot(tester, screenshotsDir, '01_home_screen');
-      print('📸 Screenshot saved: 01_home_screen.png');
+      await binding.takeScreenshot('01_home_screen');
+      print('📸 Captured: 01_home_screen');
 
       // Verify we're on the home screen
       expect(find.text('Blink Android'), findsOneWidget);
@@ -34,10 +34,11 @@ void main() {
       expect(addButton, findsOneWidget);
       await tester.tap(addButton);
       await tester.pumpAndSettle();
+      await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 2: Add connection screen
-      await takeScreenshot(tester, screenshotsDir, '02_add_connection_screen');
-      print('📸 Screenshot saved: 02_add_connection_screen.png');
+      await binding.takeScreenshot('02_add_connection_screen');
+      print('📸 Captured: 02_add_connection_screen');
 
       // Verify form fields exist
       expect(find.byKey(const Key('connection_name_field')), findsOneWidget);
@@ -65,18 +66,20 @@ void main() {
       );
 
       await tester.pumpAndSettle();
+      await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 3: Form filled
-      await takeScreenshot(tester, screenshotsDir, '03_form_filled');
-      print('📸 Screenshot saved: 03_form_filled.png');
+      await binding.takeScreenshot('03_form_filled');
+      print('📸 Captured: 03_form_filled');
 
       // Go back to home
       await tester.pageBack();
       await tester.pumpAndSettle();
+      await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 4: Back to home
-      await takeScreenshot(tester, screenshotsDir, '04_back_to_home');
-      print('📸 Screenshot saved: 04_back_to_home.png');
+      await binding.takeScreenshot('04_back_to_home');
+      print('📸 Captured: 04_back_to_home');
 
       print('✅ App flow test completed!');
     });
@@ -85,10 +88,11 @@ void main() {
       // Launch the app
       await tester.pumpWidget(const BlinkApp());
       await tester.pumpAndSettle();
+      await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 5: Empty state
-      await takeScreenshot(tester, screenshotsDir, '05_empty_state');
-      print('📸 Screenshot saved: 05_empty_state.png');
+      await binding.takeScreenshot('05_empty_state');
+      print('📸 Captured: 05_empty_state');
 
       // Verify empty state
       expect(find.text('No connections yet'), findsOneWidget);
@@ -100,15 +104,4 @@ void main() {
       print('✅ UI components test completed!');
     });
   });
-}
-
-Future<void> takeScreenshot(
-  WidgetTester tester,
-  String directory,
-  String name,
-) async {
-  await tester.pumpAndSettle();
-  // Note: Screenshots are captured by the integration test binding
-  // In a real device/emulator run, these would be saved
-  print('  📷 Would save: $directory/$name.png');
 }
