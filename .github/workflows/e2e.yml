@@ -40,7 +40,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-30-x86_64
+          key: avd-30-x86_64-v2
 
       - name: Create AVD and generate snapshot for caching
         if: steps.avd-cache.outputs.cache-hit != 'true'
@@ -50,7 +50,7 @@ jobs:
           arch: x86_64
           target: google_apis
           force-avd-creation: false
-          emulator-options: -no-window -gpu angle_swiftshader -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: echo "Generated AVD snapshot for caching."
 
@@ -71,24 +71,31 @@ jobs:
             # Create screenshots directory
             mkdir -p screenshots/e2e
             
-            # Run E2E tests with longer delays for GPU rendering
-            python3 scripts/run_e2e_screenshots.py || true
+            # Get device ID
+            DEVICE=$(adb devices | grep emulator | cut -f1 | head -1)
+            echo "📱 Using device: $DEVICE"
             
-            # Ensure screenshots exist
-            ls -la screenshots/e2e/ || mkdir -p screenshots/e2e
+            # Run E2E tests with flutter drive (captures screenshots via binding)
+            flutter drive \
+              --driver=test_driver/integration_test.dart \
+              --target=integration_test/app_flow_test.dart \
+              -d $DEVICE || true
+            
+            # List captured screenshots
+            ls -la screenshots/e2e/ || echo "No screenshots captured"
 
       - name: Zip Screenshots
         if: always()
         run: |
-          if [ -d "screenshots/e2e" ] && [ "$(ls -A screenshots/e2e 2>/dev/null)" ]; then
+          if [ -d "screenshots/e2e" ] && [ "$(ls -A screenshots/e2e/*.png 2>/dev/null)" ]; then
             cd screenshots/e2e
-            zip -r ../screenshots.zip .
+            zip -r ../screenshots.zip *.png
             cd ..
-            echo "screenshots.zip created: $(ls -lh screenshots.zip)"
+            echo "✅ screenshots.zip created: $(ls -lh screenshots.zip)"
           else
-            echo "No screenshots found, creating empty archive"
+            echo "⚠️ No screenshots found, creating placeholder"
             mkdir -p screenshots/e2e
-            touch screenshots/e2e/.gitkeep
+            echo "No screenshots captured" > screenshots/e2e/README.txt
             cd screenshots/e2e
             zip -r ../screenshots.zip .
           fi
@@ -107,6 +114,7 @@ jobs:
         with:
           name: e2e-test-results
           path: |
+            build/integration_response_data.json
             test-results/
             coverage/
           retention-days: 7

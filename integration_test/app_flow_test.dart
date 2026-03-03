@@ -1,29 +1,30 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:blink_android/main.dart';
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  
   group('App Flow Tests', () {
     setUpAll(() async {
-      // Required for Android screenshots
-      final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-      await binding.convertFlutterSurfaceToImage();
-      print('📸 Ready for screenshots (capture via host script)');
+      // Required for Android screenshots - converts Flutter surface to image
+      if (Platform.isAndroid) {
+        await binding.convertFlutterSurfaceToImage();
+      }
+      print('📸 Ready for screenshots');
     });
 
     testWidgets('App navigation flow', (WidgetTester tester) async {
       // Launch the app
       await tester.pumpWidget(const BlinkApp());
-      
-      // Wait for app to fully render (critical for headless emulator)
-      await tester.pumpAndSettle(const Duration(seconds: 3));
-      await Future.delayed(const Duration(seconds: 2)); // Extra time for GPU rendering
+      await tester.pumpAndSettle();
+      await Future.delayed(const Duration(milliseconds: 500));
 
-      print('📸 STEP: home_screen');
       // Screenshot 1: Home screen
+      await binding.takeScreenshot('01_home_screen');
+      print('📸 Captured: 01_home_screen');
 
       // Verify we're on the home screen
       expect(find.text('Blink Android'), findsOneWidget);
@@ -32,11 +33,12 @@ void main() {
       final addButton = find.byIcon(Icons.add);
       expect(addButton, findsOneWidget);
       await tester.tap(addButton);
-      await tester.pumpAndSettle(const Duration(seconds: 2));
-      await Future.delayed(const Duration(seconds: 1)); // Extra time for GPU rendering
+      await tester.pumpAndSettle();
+      await Future.delayed(const Duration(milliseconds: 500));
 
-      print('📸 STEP: add_connection_screen');
       // Screenshot 2: Add connection screen
+      await binding.takeScreenshot('02_add_connection_screen');
+      print('📸 Captured: 02_add_connection_screen');
 
       // Verify form fields exist
       expect(find.byKey(const Key('connection_name_field')), findsOneWidget);
@@ -63,19 +65,21 @@ void main() {
         'testuser',
       );
 
-      await tester.pumpAndSettle(const Duration(seconds: 1));
-      await Future.delayed(const Duration(seconds: 1)); // Extra time for GPU rendering
+      await tester.pumpAndSettle();
+      await Future.delayed(const Duration(milliseconds: 500));
 
-      print('📸 STEP: form_filled');
       // Screenshot 3: Form filled
+      await binding.takeScreenshot('03_form_filled');
+      print('📸 Captured: 03_form_filled');
 
       // Go back to home
       await tester.pageBack();
-      await tester.pumpAndSettle(const Duration(seconds: 2));
-      await Future.delayed(const Duration(seconds: 1)); // Extra time for GPU rendering
+      await tester.pumpAndSettle();
+      await Future.delayed(const Duration(milliseconds: 500));
 
-      print('📸 STEP: back_to_home');
       // Screenshot 4: Back to home
+      await binding.takeScreenshot('04_back_to_home');
+      print('📸 Captured: 04_back_to_home');
 
       print('✅ App flow test completed!');
     });
@@ -83,11 +87,12 @@ void main() {
     testWidgets('UI Components visibility', (WidgetTester tester) async {
       // Launch the app
       await tester.pumpWidget(const BlinkApp());
-      await tester.pumpAndSettle(const Duration(seconds: 3));
-      await Future.delayed(const Duration(seconds: 2)); // Extra time for GPU rendering
+      await tester.pumpAndSettle();
+      await Future.delayed(const Duration(milliseconds: 500));
 
-      print('📸 STEP: empty_state');
       // Screenshot 5: Empty state
+      await binding.takeScreenshot('05_empty_state');
+      print('📸 Captured: 05_empty_state');
 
       // Verify empty state
       expect(find.text('No connections yet'), findsOneWidget);
