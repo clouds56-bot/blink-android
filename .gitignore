@@ -52,3 +52,5 @@ test_keys/
 
 # Integration test screenshots
 /tmp/blink_android_*/
+screenshots/e2e/
+screenshots/e2e_ssh/
