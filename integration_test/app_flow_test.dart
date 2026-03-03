@@ -4,16 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:blink_android/main.dart';
 
-/// Limits settling to avoid CI hangs from unbounded pumpAndSettle waits.
-Future<void> pumpAndSettleSafely(WidgetTester tester) async {
-  for (var attempt = 0; attempt < 50; attempt++) {
-    await tester.pump(const Duration(milliseconds: 100));
-    if (!tester.binding.hasScheduledFrame) {
-      break;
-    }
-  }
-}
-
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   
@@ -29,7 +19,7 @@ void main() {
     testWidgets('App navigation flow', (WidgetTester tester) async {
       // Launch the app
       await tester.pumpWidget(const BlinkApp());
-      await pumpAndSettleSafely(tester);
+      await tester.pump(const Duration(seconds: 1));
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 1: Home screen
@@ -43,7 +33,7 @@ void main() {
       final addButton = find.byIcon(Icons.add);
       expect(addButton, findsOneWidget);
       await tester.tap(addButton);
-      await pumpAndSettleSafely(tester);
+      await tester.pump(const Duration(seconds: 1));
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 2: Add connection screen
@@ -75,7 +65,7 @@ void main() {
         'testuser',
       );
 
-      await pumpAndSettleSafely(tester);
+      await tester.pump(const Duration(seconds: 1));
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 3: Form filled
@@ -84,7 +74,7 @@ void main() {
 
       // Go back to home
       await tester.pageBack();
-      await pumpAndSettleSafely(tester);
+      await tester.pump(const Duration(seconds: 1));
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 4: Back to home
@@ -97,7 +87,7 @@ void main() {
     testWidgets('UI Components visibility', (WidgetTester tester) async {
       // Launch the app
       await tester.pumpWidget(const BlinkApp());
-      await pumpAndSettleSafely(tester);
+      await tester.pump(const Duration(seconds: 1));
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 5: Empty state
