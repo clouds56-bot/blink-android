@@ -33,7 +33,7 @@ jobs:
         run: flutter pub get
 
       - name: Build APK for E2E Tests
-        run: flutter build apk --debug --target=integration_test/app_flow_test.dart
+        run: flutter build apk --debug
 
       - name: Run E2E Tests
         uses: reactivecircus/android-emulator-runner@v2
