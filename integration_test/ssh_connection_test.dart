@@ -4,57 +4,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:blink_android/main.dart';
 
-/// Global screenshot counter for ADB-based captures
-int _screenshotCounter = 0;
-
-/// Capture screenshot using ADB screencap command
-/// This actually saves PNG files to the screenshots/e2e_ssh/ directory
-Future<void> captureScreenshot(String name) async {
-  _screenshotCounter++;
-  final filename = '${_screenshotCounter.toString().padLeft(2, '0')}_$name.png';
-  final outputPath = 'screenshots/e2e_ssh/$filename';
-  
-  // Ensure directory exists
-  final dir = Directory('screenshots/e2e_ssh');
-  if (!dir.existsSync()) {
-    dir.createSync(recursive: true);
-  }
-  
-  // Use ADB to capture screenshot from emulator
-  final result = await Process.run(
-    'adb',
-    ['-s', 'emulator-5554', 'exec-out', 'screencap', '-p'],
-  );
-  
-  if (result.exitCode == 0) {
-    final file = File(outputPath);
-    await file.writeAsBytes(result.stdout);
-    print('📸 Screenshot saved: $outputPath');
-  } else {
-    print('⚠️ Screenshot failed: ${result.stderr}');
-  }
-}
-
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   group('SSH Connection End-to-End Tests', () {
     setUpAll(() async {
-      // Required for Android screenshots
-      final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-      await binding.convertFlutterSurfaceToImage();
-      
-      // Clean up old screenshots
-      final dir = Directory('screenshots/e2e_ssh');
-      if (dir.existsSync()) {
-        await for (final file in dir.list()) {
-          if (file is File && file.path.endsWith('.png')) {
-            await file.delete();
-          }
-        }
+      // Required for Android screenshots - converts Flutter surface to image
+      if (Platform.isAndroid) {
+        await binding.convertFlutterSurfaceToImage();
       }
-      
-      print('📸 Screenshots will be saved to: screenshots/e2e_ssh/');
+      print('📸 Ready for screenshots');
     });
 
     testWidgets('Complete SSH connection flow', (WidgetTester tester) async {
@@ -71,7 +30,8 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 1: Home screen
-      await captureScreenshot('home_screen');
+      await binding.takeScreenshot('01_home_screen');
+      print('📸 Captured: 01_home_screen');
 
       // Verify we're on the home screen
       expect(find.text('Blink Android'), findsOneWidget);
@@ -85,7 +45,8 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 2: Add connection screen
-      await captureScreenshot('add_connection_screen');
+      await binding.takeScreenshot('02_add_connection_screen');
+      print('📸 Captured: 02_add_connection_screen');
 
       // Fill in the connection form using Keys
       await tester.enterText(
@@ -113,7 +74,8 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 3: Form filled
-      await captureScreenshot('form_filled');
+      await binding.takeScreenshot('03_form_filled');
+      print('📸 Captured: 03_form_filled');
 
       // Find and tap the save button (check for both text and icon)
       final saveButton = find.text('Save');
@@ -132,12 +94,13 @@ void main() {
           }
         }
       }
-      
+
       await tester.pumpAndSettle();
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 4: Connection added
-      await captureScreenshot('connection_added');
+      await binding.takeScreenshot('04_connection_added');
+      print('📸 Captured: 04_connection_added');
 
       // Verify the connection appears in the list (may or may not succeed without actual save)
       final connectionTile = find.text(connectionName);
@@ -150,14 +113,16 @@ void main() {
         await Future.delayed(const Duration(seconds: 2));
 
         // Screenshot 5: Terminal screen
-        await captureScreenshot('terminal_connecting');
+        await binding.takeScreenshot('05_terminal_connecting');
+        print('📸 Captured: 05_terminal_connecting');
 
         // Wait for connection attempt
         await Future.delayed(const Duration(seconds: 3));
         await tester.pumpAndSettle();
 
         // Screenshot 6: Terminal connected
-        await captureScreenshot('terminal_connected');
+        await binding.takeScreenshot('06_terminal_connected');
+        print('📸 Captured: 06_terminal_connected');
 
         // Go back to home
         await tester.pageBack();
@@ -169,10 +134,10 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot: Final state
-      await captureScreenshot('final_state');
+      await binding.takeScreenshot('07_final_state');
+      print('📸 Captured: 07_final_state');
 
       print('✅ SSH connection test completed!');
-      print('📁 Screenshots saved in: screenshots/e2e_ssh/');
     });
   });
 }
