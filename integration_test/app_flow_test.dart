@@ -19,7 +19,7 @@ void main() {
     testWidgets('App navigation flow', (WidgetTester tester) async {
       // Launch the app
       await tester.pumpWidget(const BlinkApp());
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 1: Home screen
@@ -33,7 +33,7 @@ void main() {
       final addButton = find.byIcon(Icons.add);
       expect(addButton, findsOneWidget);
       await tester.tap(addButton);
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 2: Add connection screen
@@ -65,7 +65,7 @@ void main() {
         'testuser',
       );
 
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 3: Form filled
@@ -74,7 +74,7 @@ void main() {
 
       // Go back to home
       await tester.pageBack();
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 4: Back to home
@@ -87,7 +87,7 @@ void main() {
     testWidgets('UI Components visibility', (WidgetTester tester) async {
       // Launch the app
       await tester.pumpWidget(const BlinkApp());
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Screenshot 5: Empty state

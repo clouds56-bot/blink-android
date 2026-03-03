@@ -87,11 +87,16 @@ main() {
     # Run integration test with flutter test
     # Screenshots are stored in build/test_outputs/
     echo "Running E2E tests (10 min timeout)..."
+    set +e
     timeout 600 flutter test \
         integration_test/app_flow_test.dart \
-        -d "$DEVICE" || {
-            echo "⚠️ Tests exited with non-zero code: $?"
-        }
+        -d "$DEVICE"
+    TEST_EXIT_CODE=$?
+    set -e
+
+    if [ $TEST_EXIT_CODE -ne 0 ]; then
+        echo "⚠️ Tests exited with non-zero code: $TEST_EXIT_CODE"
+    fi
     
     echo ""
     echo "=== Test Results ==="
@@ -117,6 +122,8 @@ main() {
     echo ""
     echo "Screenshots in screenshots/e2e/:"
     ls -la screenshots/e2e/*.png 2>/dev/null || echo "  No PNG files found"
+
+    exit $TEST_EXIT_CODE
 }
 
 main "$@"
